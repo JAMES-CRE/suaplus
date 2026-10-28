@@ -1,0 +1,39 @@
+# Core framework
+Django>=5.1,<5.2
+django-environ>=0.11
+django-allauth>=65.0
+django-otp>=1.5
+
+# Database
+psycopg[binary]>=3.2
+dj-database-url>=2.2
+
+# Background jobs
+celery[redis]>=5.4
+redis>=5.2
+django-celery-beat>=2.7
+
+# Data and imports
+openpyxl>=3.1
+pandas>=2.2
+python-magic>=0.4
+
+# QR, badges, utilities
+qrcode[pil]>=8.0
+python-dateutil>=2.9
+requests>=2.32
+Pillow>=11.0
+
+# WSGI / static
+gunicorn>=23.0
+whitenoise>=6.8
+
+# Development and testing (kept separate in production via --no-dev style split)
+pytest>=8.3
+pytest-django>=4.9
+pytest-cov>=6.0
+factory-boy>=3.3
+freezegun>=1.5
+black>=24.10
+ruff>=0.8
+django-debug-toolbar>=4.4
