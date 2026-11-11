@@ -1,0 +1,113 @@
+﻿{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{{ memo.period_label }} - Sua+ Memo{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto px-4 sm:px-6 py-8 md:py-12 pb-32">
+
+    <!-- Toolbar (hidden on print) -->
+    <div class="print:hidden mb-6 md:mb-8">
+        <a href="{% url 'memo_list' %}" class="text-sm text-kec-grey hover:text-kec-red inline-block">
+             Back to Memos
+        </a>
+    </div>
+
+    <!-- Header -->
+    <div class="mb-8 md:mb-10">
+        <h1 class="font-syncopate text-2xl sm:text-3xl md:text-4xl uppercase tracking-wider md:tracking-widest text-kec-charcoal mb-3 break-words">
+            {{ memo.period_label }}
+        </h1>
+        <p class="text-xs sm:text-sm text-kec-grey mb-2">
+            {{ memo.scope.programme|default:"All programmes" }}
+             Generated {{ memo.created_at|date:"d M Y, H:i" }}
+             v{{ memo.version }}
+        </p>
+        <p class="text-xs sm:text-sm {% if memo.used_ai %}text-kec-charcoal{% else %}text-kec-grey{% endif %}">
+            {% if memo.used_ai %}AI-assisted narrative{% else %}Template-generated narrative{% endif %}
+        </p>
+    </div>
+
+    <hr class="border-gray-200 mb-8 md:mb-10">
+
+    {% if messages %}
+        {% for message in messages %}
+            <div class="mb-6 p-3 bg-red-50 text-kec-red text-sm rounded-kec print:hidden">{{ message }}</div>
+        {% endfor %}
+    {% endif %}
+
+    <!-- Toolbar buttons -->
+    <div class="flex flex-col sm:flex-row gap-3 mb-8 md:mb-10 print:hidden">
+        <button onclick="window.print()" class="btn-secondary w-full sm:w-auto">
+            Print / Save as PDF
+        </button>
+        {% if memo.narrative %}
+            <a href="data:text/plain;charset=utf-8,{{ memo.narrative|urlencode }}" 
+               download="{{ memo.period_label|slugify }}-memo.txt" 
+               class="btn-secondary w-full sm:w-auto text-center">
+                Download as text
+            </a>
+        {% endif %}
+    </div>
+
+    <!-- The narrative -->
+    <div class="mb-8 md:mb-12">
+        <p class="text-xs font-bold text-kec-red uppercase tracking-widest mb-4">Narrative</p>
+        <div class="border border-gray-200 rounded-kec p-4 sm:p-6 bg-white">
+            <pre class="font-mono text-[10px] sm:text-xs text-kec-charcoal whitespace-pre-wrap break-words leading-relaxed">{{ memo.narrative }}</pre>
+        </div>
+    </div>
+
+    <!-- Raw figures (collapsible) -->
+    {% if memo.figures %}
+    <div class="mb-8 md:mb-12 print:hidden">
+        <details>
+            <summary class="text-xs font-bold text-kec-red uppercase tracking-widest cursor-pointer mb-4">
+                View raw figures
+            </summary>
+            <div class="mt-4 border border-gray-200 rounded-kec p-4 sm:p-6 bg-gray-50 overflow-x-auto">
+                <pre class="font-mono text-[10px] sm:text-xs text-kec-charcoal whitespace-pre-wrap leading-relaxed">{{ memo.figures }}</pre>
+            </div>
+        </details>
+    </div>
+    {% endif %}
+
+    <!-- Version history -->
+    {% if previous_versions %}
+    <hr class="border-gray-200 mb-8 print:hidden">
+    <div class="print:hidden">
+        <p class="text-xs font-bold text-kec-red uppercase tracking-widest mb-4">Previous versions</p>
+        <div class="space-y-2">
+            {% for v in previous_versions %}
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between border border-gray-200 rounded-kec p-4 gap-3">
+                <div>
+                    <p class="text-sm text-kec-charcoal font-medium">v{{ v.version }}</p>
+                    <p class="text-xs text-kec-grey">{{ v.created_at|date:"d M Y, H:i" }}  {{ v.created_by.get_full_name|default:v.created_by.username|default:"-" }}</p>
+                </div>
+                <a href="{% url 'memo_detail' v.id %}" class="text-sm font-semibold text-kec-charcoal hover:text-kec-red shrink-0">
+                    View 
+                </a>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<style>
+    @media print {
+        body { background: white !important; }
+        .print\:hidden { display: none !important; }
+        .border { border-color: #E5E7EB !important; }
+        pre { 
+            white-space: pre-wrap !important; 
+            font-size: 10px !important;
+            break-inside: auto;
+        }
+        .break-words { word-break: break-word; }
+    }
+</style>
+{% endblock %}

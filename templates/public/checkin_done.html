@@ -1,0 +1,44 @@
+﻿{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Checked In - {{ session.title }}{% endblock %}
+
+{% block content %}
+<div class="min-h-[80vh] flex items-center justify-center px-4 sm:px-6 py-12">
+    <div class="max-w-md w-full text-center">
+
+        <!-- Success Icon -->
+        <div class="w-20 h-20 rounded-full bg-emerald-50 flex items-center justify-center text-emerald-600 mx-auto mb-6 border border-emerald-100">
+            <svg class="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"></path>
+            </svg>
+        </div>
+
+        <!-- Headline -->
+        <h1 class="font-syncopate text-3xl md:text-4xl uppercase tracking-wider md:tracking-widest text-kec-charcoal mb-3">
+            Checked In
+        </h1>
+
+        <!-- Session Title -->
+        <p class="text-base sm:text-lg text-kec-grey font-medium mb-8">
+            {{ session.title }}
+        </p>
+
+        <hr class="border-gray-200 w-16 mx-auto mb-8">
+
+        <!-- Reminder Card -->
+        <div class="bg-gray-50 border border-gray-100 rounded-kec p-5 text-left mb-8">
+            <p class="text-xs font-bold text-kec-red uppercase tracking-widest mb-2">What happens next</p>
+            <p class="text-sm text-kec-charcoal leading-relaxed">
+                Remember to scan the check-out QR code at the end of the session to complete your attendance and generate your passport link.
+            </p>
+        </div>
+
+        <!-- Back Button -->
+        <a href="/" class="btn-secondary w-full block text-center">
+            Back to Home
+        </a>
+
+    </div>
+</div>
+{% endblock %}

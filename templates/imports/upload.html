@@ -1,0 +1,93 @@
+﻿{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Import Attendance - Sua+ Hub{% endblock %}
+
+{% block content %}
+<div class="max-w-xl mx-auto px-6 py-12 pb-32">
+
+    <a href="{% url 'session_list' %}" class="text-sm text-kec-grey hover:text-kec-red mb-6 inline-block">
+         Back to Sessions
+    </a>
+
+    <div class="mb-10">
+        <h1 class="font-syncopate text-4xl md:text-5xl uppercase tracking-widest text-kec-charcoal mb-2">
+            Import Attendance
+        </h1>
+        <p class="text-sm text-kec-grey">
+            Upload a spreadsheet to add attendees to a session.
+        </p>
+    </div>
+
+    <hr class="border-gray-200 mb-10">
+
+    {% if messages %}
+        {% for message in messages %}
+            <div class="mb-6 p-3 bg-red-50 text-kec-red text-sm rounded-kec">{{ message }}</div>
+        {% endfor %}
+    {% endif %}
+
+    <form method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+
+        <p class="text-xs font-bold text-kec-red uppercase tracking-widest mb-6">Session</p>
+
+        <div class="mb-10">
+            <label for="session" class="block text-xs font-semibold text-kec-grey uppercase tracking-wider mb-2">
+                Session
+            </label>
+            <select name="session" id="session" class="form-input" required>
+                <option value="">Select a session</option>
+                {% for s in sessions %}
+                    <option value="{{ s.id }}">{{ s.title }} - {{ s.programme.name }} - {{ s.start_at|date:"d M Y" }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <hr class="border-gray-200 mb-10">
+
+        <p class="text-xs font-bold text-kec-red uppercase tracking-widest mb-6">File</p>
+
+        <div class="mb-10">
+            <label for="file" class="block text-xs font-semibold text-kec-grey uppercase tracking-wider mb-2">
+                Spreadsheet
+            </label>
+            <input
+                type="file"
+                name="file"
+                id="file"
+                accept=".csv,.xlsx"
+                required
+                class="block w-full text-sm text-kec-charcoal file:mr-4 file:py-2 file:px-4 file:rounded-kec file:border-0 file:text-sm file:font-semibold file:bg-kec-charcoal file:text-white hover:file:bg-kec-red file:cursor-pointer cursor-pointer border border-gray-200 rounded-kec p-2">
+            <p class="text-xs text-kec-grey mt-2">
+                CSV or XLSX  10 MB maximum
+            </p>
+        </div>
+
+        <hr class="border-gray-200 mb-10">
+
+        <p class="text-xs font-bold text-kec-red uppercase tracking-widest mb-4">How it works</p>
+
+        <ul class="space-y-2 mb-10 text-sm text-kec-grey">
+            <li> Upload your file</li>
+            <li> Map columns to fields</li>
+            <li> Preview rows before committing</li>
+            <li> New, matched, or errored people are flagged before anything is saved</li>
+        </ul>
+
+        <hr class="border-gray-200 mb-10">
+
+        <div class="flex flex-col md:flex-row gap-4 justify-end">
+            <a href="{% url 'session_list' %}" class="btn-secondary text-center">
+                Cancel
+            </a>
+            <button type="submit" class="btn-primary">
+                Upload 
+            </button>
+        </div>
+
+    </form>
+
+</div>
+{% endblock %}
+

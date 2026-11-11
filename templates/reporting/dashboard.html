@@ -1,0 +1,315 @@
+﻿{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Sua+ Pulse   Dashboard{% endblock %}
+
+{% block content %}
+<div class="max-w-6xl mx-auto px-4 sm:px-6 py-8 md:py-12 pb-32">
+
+    <a href="/hub/" class="text-sm text-kec-grey hover:text-kec-red mb-6 inline-block">
+         Back to Hub
+    </a>
+
+    <div class="mb-6 md:mb-8">
+        <h1 class="font-syncopate text-3xl md:text-5xl uppercase tracking-wider md:tracking-widest text-kec-charcoal mb-2">
+            Sua+ Pulse
+        </h1>
+        <p class="text-sm text-kec-grey">Live KPIs across the university</p>
+    </div>
+
+    <hr class="border-gray-200 mb-6 md:mb-8">
+
+    <!-- Filters -->
+    <form method="get" class="mb-8 md:mb-10">
+        <div class="flex flex-col md:flex-row gap-4">
+            <div class="flex-1">
+                <label for="period" class="block text-xs font-semibold text-kec-grey uppercase tracking-wider mb-2">Period</label>
+                <select name="period" id="period" class="form-input">
+                    <option value="all" {% if selected_period == 'all' %}selected{% endif %}>All time</option>
+                    <option value="30d" {% if selected_period == '30d' %}selected{% endif %}>Last 30 days</option>
+                    <option value="90d" {% if selected_period == '90d' %}selected{% endif %}>Last 90 days</option>
+                    <option value="year" {% if selected_period == 'year' %}selected{% endif %}>Last year</option>
+                </select>
+            </div>
+            <div class="flex-1">
+                <label for="programme" class="block text-xs font-semibold text-kec-grey uppercase tracking-wider mb-2">Programme</label>
+                <select name="programme" id="programme" class="form-input">
+                    <option value="">All programmes</option>
+                    {% for p in programmes %}
+                        <option value="{{ p.id }}" {% if selected_programme == p.id|stringformat:"s" %}selected{% endif %}>{{ p.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="flex-1">
+                <label for="unit" class="block text-xs font-semibold text-kec-grey uppercase tracking-wider mb-2">Unit</label>
+                <select name="unit" id="unit" class="form-input">
+                    <option value="">All units</option>
+                    {% for u in units %}
+                        <option value="{{ u.id }}" {% if selected_unit == u.id|stringformat:"s" %}selected{% endif %}>{{ u.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="flex items-end">
+                <button type="submit" class="btn-secondary w-full md:w-auto">Apply</button>
+            </div>
+        </div>
+    </form>
+
+    <hr class="border-gray-200 mb-8 md:mb-10">
+
+    <!-- KPI Tiles (6 across on desktop) -->
+    <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 md:gap-4 mb-10">
+
+        <!-- Reach -->
+        <a href="{% url 'drilldown' 'reach' %}?programme={{ selected_programme }}&unit={{ selected_unit }}"
+           class="block border border-gray-200 rounded-kec p-4 md:p-5 hover:border-kec-red transition-colors">
+            <p class="text-[10px] sm:text-xs font-semibold text-kec-grey uppercase tracking-wider mb-1 md:mb-2">People reached</p>
+            <p class="text-2xl sm:text-3xl md:text-4xl font-bold text-kec-charcoal leading-none">{{ reach }}</p>
+        </a>
+
+        <!-- Workshops held -->
+        <div class="border border-gray-200 rounded-kec p-4 md:p-5">
+            <p class="text-[10px] sm:text-xs font-semibold text-kec-grey uppercase tracking-wider mb-1 md:mb-2">Workshops held</p>
+            <p class="text-2xl sm:text-3xl md:text-4xl font-bold text-kec-charcoal leading-none">{{ workshops_held }}</p>
+        </div>
+
+        <!-- Active trainers -->
+        <div class="border border-gray-200 rounded-kec p-4 md:p-5">
+            <p class="text-[10px] sm:text-xs font-semibold text-kec-grey uppercase tracking-wider mb-1 md:mb-2">Active trainers</p>
+            <p class="text-2xl sm:text-3xl md:text-4xl font-bold text-kec-charcoal leading-none">{{ active_trainers }}</p>
+        </div>
+
+        <!-- Cascade -->
+        <div class="border border-gray-200 rounded-kec p-4 md:p-5">
+            <p class="text-[10px] sm:text-xs font-semibold text-kec-grey uppercase tracking-wider mb-1 md:mb-2">Cascade multiplier</p>
+            <p class="text-2xl sm:text-3xl md:text-4xl font-bold text-kec-charcoal leading-none">
+                {% if cascade.mean_multiplier %}{{ cascade.mean_multiplier }}-{% endif %}
+            </p>
+        </div>
+
+        <!-- Mean CSAT -->
+        <div class="border border-gray-200 rounded-kec p-4 md:p-5">
+            <p class="text-[10px] sm:text-xs font-semibold text-kec-grey uppercase tracking-wider mb-1 md:mb-2">Mean CSAT</p>
+            <p class="text-2xl sm:text-3xl md:text-4xl font-bold text-kec-charcoal leading-none">
+                {% if csat.mean %}{{ csat.mean }}{% endif %}
+            </p>
+        </div>
+
+        <!-- Baseline -->
+        <div class="border border-gray-200 rounded-kec p-4 md:p-5">
+            <p class="text-[10px] sm:text-xs font-semibold text-kec-grey uppercase tracking-wider mb-1 md:mb-2">Baseline responses</p>
+            <p class="text-2xl sm:text-3xl md:text-4xl font-bold text-kec-charcoal leading-none">
+                {% if baseline.percent %}{{ baseline.percent }}%{% endif %}
+            </p>
+            {% if baseline.total %}
+            <p class="text-[9px] sm:text-[10px] text-kec-grey mt-1 md:mt-2">{{ baseline.count }} of {{ baseline.total }} headcount</p>
+            {% endif %}
+        </div>
+
+    </div>
+
+    <hr class="border-gray-200 mb-8 md:mb-10">
+
+    <!-- AI Coverage by College (horizontal bar) -->
+    <div class="mb-8 md:mb-10">
+        <p class="text-xs font-bold text-kec-red uppercase tracking-widest mb-2">AI Competency coverage by college</p>
+        <p class="text-xs text-kec-grey mb-6">Share of headcount with verified level 2 or above on AI-01 to AI-04</p>
+        {% if ai_coverage %}
+            <div class="border border-gray-200 rounded-kec p-3 md:p-6 bg-white">
+                <div class="relative w-full" style="height: {{ ai_coverage|length|add:'40' }}px; min-height: 200px;">
+                    <canvas id="coverageChart"></canvas>
+                </div>
+            </div>
+        {% else %}
+            <p class="text-sm text-kec-grey">No college coverage data yet.</p>
+        {% endif %}
+    </div>
+
+    <hr class="border-gray-200 mb-8 md:mb-10">
+
+    <!-- Monthly reach (area/line chart) -->
+    <div class="mb-8 md:mb-10">
+        <p class="text-xs font-bold text-kec-red uppercase tracking-widest mb-2">Monthly reach</p>
+        <p class="text-xs text-kec-grey mb-6">Completed attendances per month for the selected filters</p>
+        {% if monthly_reach %}
+            <div class="border border-gray-200 rounded-kec p-3 md:p-6 bg-white">
+                <div class="relative w-full" style="height: 280px;">
+                    <canvas id="monthlyChart"></canvas>
+                </div>
+            </div>
+        {% else %}
+            <p class="text-sm text-kec-grey">No attendance data for the selected filters.</p>
+        {% endif %}
+    </div>
+
+    <hr class="border-gray-200 mb-8 md:mb-10">
+
+    <!-- Reach by College (original bar chart, kept for reference) -->
+    <div>
+        <p class="text-xs font-bold text-kec-red uppercase tracking-widest mb-4 md:mb-6">Total reach by college</p>
+        {% if reach_by_unit %}
+            <div class="border border-gray-200 rounded-kec p-3 md:p-6 bg-white overflow-hidden">
+                <div class="relative w-full" style="height: 250px;">
+                    <canvas id="reachChart"></canvas>
+                </div>
+            </div>
+        {% else %}
+            <p class="text-sm text-kec-grey">No attendance data for the selected filters.</p>
+        {% endif %}
+    </div>
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'js/chart.min.js' %}"></script>
+<script>
+    // ============================================================
+    // AI Coverage by College   horizontal bar chart
+    // ============================================================
+    {% if ai_coverage %}
+    var coverageData = {{ ai_coverage|safe }};
+    var coverageLabels = coverageData.map(function(row) { return row.unit; });
+    var coverageValues = coverageData.map(function(row) { return row.percent; });
+
+    new Chart(document.getElementById('coverageChart'), {
+        type: 'bar',
+        data: {
+            labels: coverageLabels,
+            datasets: [{
+                label: '% at Level 2+',
+                data: coverageValues,
+                backgroundColor: '#10B981',
+                borderRadius: 4,
+                barThickness: 22
+            }]
+        },
+        options: {
+            indexAxis: 'y',
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        label: function(ctx) { return ctx.parsed.x + '%'; }
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    beginAtZero: true,
+                    max: 100,
+                    ticks: {
+                        stepSize: 25,
+                        font: { size: 10 },
+                        callback: function(v) { return v + '%'; }
+                    },
+                    grid: { color: '#E5E7EB' }
+                },
+                y: {
+                    grid: { display: false },
+                    ticks: { font: { size: 11 } }
+                }
+            }
+        }
+    });
+    {% endif %}
+
+    // ============================================================
+    // Monthly reach   line chart with fill
+    // ============================================================
+    {% if monthly_reach %}
+    var monthlyData = {{ monthly_reach|safe }};
+    var monthlyLabels = monthlyData.map(function(row) { return row.month; });
+    var monthlyValues = monthlyData.map(function(row) { return row.count; });
+
+    new Chart(document.getElementById('monthlyChart'), {
+        type: 'line',
+        data: {
+            labels: monthlyLabels,
+            datasets: [{
+                label: 'Attendances',
+                data: monthlyValues,
+                borderColor: '#10B981',
+                backgroundColor: 'rgba(16, 185, 129, 0.15)',
+                borderWidth: 2,
+                fill: true,
+                tension: 0.4,
+                pointBackgroundColor: '#10B981',
+                pointBorderColor: '#fff',
+                pointBorderWidth: 2,
+                pointRadius: 4,
+                pointHoverRadius: 6
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        label: function(ctx) { return ctx.parsed.y + ' attendances'; }
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    grid: { display: false },
+                    ticks: { font: { size: 11 } }
+                },
+                y: {
+                    beginAtZero: true,
+                    ticks: { stepSize: 25, font: { size: 10 } },
+                    grid: { color: '#E5E7EB' }
+                }
+            }
+        }
+    });
+    {% endif %}
+
+    // ============================================================
+    // Reach by College   the original bar chart
+    // ============================================================
+    {% if reach_by_unit %}
+    var reachData = {{ reach_by_unit|safe }};
+    var reachLabels = reachData.map(function(row) { return row.unit; });
+    var reachValues = reachData.map(function(row) { return row.people; });
+
+    new Chart(document.getElementById('reachChart'), {
+        type: 'bar',
+        data: {
+            labels: reachLabels,
+            datasets: [{
+                label: 'People',
+                data: reachValues,
+                backgroundColor: '#D1121C',
+                borderRadius: 4,
+                barThickness: 20
+            }]
+        },
+        options: {
+            indexAxis: 'y',
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false }
+            },
+            scales: {
+                x: {
+                    beginAtZero: true,
+                    ticks: { stepSize: 1, font: { size: 10 } },
+                    grid: { color: '#E5E7EB' }
+                },
+                y: {
+                    grid: { display: false },
+                    ticks: { font: { size: 11 } }
+                }
+            }
+        }
+    });
+    {% endif %}
+</script>
+{% endblock %}
+

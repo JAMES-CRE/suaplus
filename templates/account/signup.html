@@ -1,0 +1,69 @@
+﻿{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Request Access - Sua+ Hub{% endblock %}
+
+{% block content %}
+<div class="min-h-[80vh] flex items-center justify-center px-6 py-12">
+    <div class="max-w-xl w-full">
+
+        <!-- Header -->
+        <div class="text-center mb-10">
+           <!----> <img src="{% static 'img/kec-icon.png' %}" alt="KEC" class="h-16 mx-auto mb-6">
+            <h1 class="font-syncopate text-3xl md:text-4xl uppercase tracking-widest text-kec-charcoal mb-4">
+                Request Access
+            </h1>
+        </div>
+
+        <hr class="border-gray-200 mb-8">
+
+        <p class="text-base text-kec-grey leading-relaxed mb-10 text-center">
+            Sua+ Hub accounts are provisioned by the KNUST E-Learning Centre.
+            Self-registration is disabled.
+        </p>
+
+        <!-- Who needs an account -->
+        <div class="mb-10">
+            <p class="text-xs font-bold text-kec-red uppercase tracking-widest mb-4">Who needs an account</p>
+            <ul class="space-y-2 text-sm text-kec-charcoal">
+                <li> Facilitators (create sessions)</li>
+                <li> Programme Owners (nominate trainers)</li>
+                <li> College Focal Persons (review credentials)</li>
+                <li> Super Admins (manage the system)</li>
+            </ul>
+        </div>
+
+        <!-- Who doesn't -->
+        <div class="mb-10">
+            <p class="text-xs font-bold text-kec-red uppercase tracking-widest mb-4">Who doesn't</p>
+            <p class="text-sm text-kec-grey leading-relaxed">
+                Participants - your passport arrives by email after each workshop.
+                No account is needed to view your stamps, competencies, and trainer progress.
+            </p>
+        </div>
+
+        <!-- How to request -->
+        <div class="mb-10">
+            <p class="text-xs font-bold text-kec-red uppercase tracking-widest mb-4">To request access</p>
+            <p class="text-sm text-kec-charcoal mb-2">
+                Email <strong>elearning@knust.edu.gh</strong> with:
+            </p>
+            <ul class="space-y-1 text-sm text-kec-grey">
+                <li> Your full name and staff number</li>
+                <li> The role you need (facilitator, programme owner, focal person)</li>
+                <li> Your college or unit</li>
+                <li> The programme you'll be working with, if applicable</li>
+            </ul>
+        </div>
+
+        <hr class="border-gray-200 mb-8">
+
+        <!-- Back to login -->
+        <a href="{% url 'account_login' %}" class="btn-secondary w-full block text-center">
+            Back to Login
+        </a>
+
+    </div>
+</div>
+{% endblock %}
+

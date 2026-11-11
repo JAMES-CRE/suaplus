@@ -1,0 +1,125 @@
+﻿{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+
+<!-- Hero Section -->
+<section class="relative py-16 md:py-24 px-4 sm:px-6 overflow-hidden">
+    <div class="max-w-5xl mx-auto text-center relative z-10">
+        
+        <!-- Standalone KEC Icon -->
+        <div class="mb-6 md:mb-8">
+            <img src="{% static 'img/kec-icon.png' %}" alt="KEC" class="h-20 md:h-24 mx-auto">
+        </div>
+
+        <h1 class="text-4xl sm:text-5xl md:text-7xl font-syncopate uppercase tracking-wider md:tracking-widest text-kec-charcoal mb-5 md:mb-6 leading-tight break-words">
+            Empowering KNUST<br class="hidden md:block"> through Digital Education.
+        </h1>
+        <p class="text-base sm:text-lg md:text-xl text-kec-grey max-w-2xl mx-auto mb-8 md:mb-10 leading-relaxed px-2">
+            The E-Learning Centre builds capacity, drives innovation, and multiplies knowledge across the university
+            through verified competency tracking and trainer development.
+        </p>
+        <div class="flex flex-col sm:flex-row items-center justify-center gap-3 md:gap-4">
+            <a href="/sas/" class="btn-primary w-full sm:w-auto px-6 md:px-10 py-3 md:py-4 text-base md:text-lg font-syncopate uppercase tracking-wider">Enter Sua+</a>
+            <a href="#impact" class="btn-secondary w-full sm:w-auto px-6 md:px-10 py-3 md:py-4 text-base md:text-lg font-syncopate uppercase tracking-wider">Explore our impact</a>
+        </div>
+        <p class="text-xs sm:text-sm text-kec-grey mt-6 md:mt-8">
+            Already have a passport? <a href="/resend/" class="text-kec-red font-medium hover:underline">Find your passport link</a>
+        </p>
+        <p class="text-xs sm:text-sm text-kec-grey mt-2">
+            Staff? <a href="/login/" class="text-kec-red font-medium hover:underline">Sign in to the Hub</a>
+        </p>
+    </div>
+
+    <!-- Decorative background element -->
+    <div class="absolute top-0 left-1/2 -translate-x-1/2 w-full h-[500px] bg-gradient-to-b from-kec-red/5 to-transparent pointer-events-none"></div>
+</section>
+
+<!-- Divider -->
+<div class="border-t border-gray-100"></div>
+
+<!-- Mandate Section -->
+<section id="mandate" class="py-16 md:py-20 px-4 sm:px-6">
+    <div class="max-w-5xl mx-auto">
+        <div class="text-center mb-10 md:mb-16">
+            <p class="text-xs font-bold text-kec-red uppercase tracking-widest">Our Mandate</p>
+            <h2 class="text-2xl sm:text-3xl md:text-4xl font-syncopate uppercase tracking-wider md:tracking-widest text-kec-charcoal mb-4">Building digital capability at KNUST</h2>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-5 md:gap-8">
+            <div class="card p-6 md:p-8 text-center">
+                <h3 class="text-lg md:text-xl font-bold text-kec-charcoal mb-3">Capacity Building</h3>
+                <p class="text-sm text-kec-grey leading-relaxed">
+                    We train Faculty, Students, and Non-Academic Staff in modern digital pedagogy and AI-enabled teaching.
+                </p>
+            </div>
+            <div class="card p-6 md:p-8 text-center">
+                <h3 class="text-lg md:text-xl font-bold text-kec-charcoal mb-3">Competency Passports</h3>
+                <p class="text-sm text-kec-grey leading-relaxed">
+                    We don't just track attendance we track and verify what you can do through Sua+.
+                </p>
+            </div>
+            <div class="card p-6 md:p-8 text-center">
+                <h3 class="text-lg md:text-xl font-bold text-kec-charcoal mb-3">Cascade Model</h3>
+                <p class="text-sm text-kec-grey leading-relaxed">
+                    We train Trainers of Trainers (ToTs) to ensure knowledge multiplies across every college.
+                </p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Seminar Carousel (Original) -->
+<section class="py-12 px-6">
+    <div class="max-w-5xl mx-auto overflow-x-auto flex gap-4">
+        <img src="{% static 'img/gallery/seminar-1.jpg' %}" alt="Seminar 1" class="h-48">
+        <img src="{% static 'img/gallery/seminar-2.jpg' %}" alt="Seminar 2" class="h-48">
+        <img src="{% static 'img/gallery/seminar-3.jpg' %}" alt="Seminar 3" class="h-48">
+    </div>
+</section>
+
+<!-- Divider -->
+<section id="impact" class="py-16 md:py-20 px-4 sm:px-6 bg-gray-50">
+    <div class="max-w-5xl mx-auto">
+        <div class="text-center mb-10 md:mb-16">
+            <p class="text-xs font-bold text-kec-red uppercase tracking-widest">Our Impact</p>
+            <h2 class="text-2xl sm:text-3xl md:text-4xl font-syncopate uppercase tracking-wider md:tracking-widest text-kec-charcoal mb-4">Numbers that matter</h2>
+        </div>
+
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
+            <div class="card p-4 md:p-6 text-center">
+                <div class="text-2xl md:text-4xl font-bold text-kec-charcoal mb-1 md:mb-2">1,200+</div>
+                <div class="text-xs md:text-sm text-kec-grey">Educators trained</div>
+            </div>
+            <div class="card p-4 md:p-6 text-center">
+                <div class="text-2xl md:text-4xl font-bold text-kec-charcoal mb-1 md:mb-2">24</div>
+                <div class="text-xs md:text-sm text-kec-grey">Seminars delivered</div>
+            </div>
+            <div class="card p-4 md:p-6 text-center">
+                <div class="text-2xl md:text-4xl font-bold text-kec-charcoal mb-1 md:mb-2">6</div>
+                <div class="text-xs md:text-sm text-kec-grey">Colleges reached</div>
+            </div>
+            <div class="card p-4 md:p-6 text-center">
+                <div class="text-2xl md:text-4xl font-bold text-kec-charcoal mb-1 md:mb-2">98%</div>
+                <div class="text-xs md:text-sm text-kec-grey">Satisfaction rate</div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Divider -->
+<div class="border-t border-gray-100"></div>
+
+<!-- CTA Section -->
+<section class="py-16 md:py-24 px-4 sm:px-6 text-center">
+    <div class="max-w-2xl mx-auto">
+        <h2 class="text-2xl sm:text-3xl md:text-4xl font-syncopate uppercase tracking-wider md:tracking-widest text-kec-charcoal mb-4 md:mb-6">Ready to find your plus?</h2>
+        <p class="text-base md:text-lg text-kec-grey mb-8 md:mb-10 max-w-lg mx-auto">
+            Start your self-assessment and build your competency passport today.
+        </p>
+        <a href="/sas/" class="btn-primary w-full sm:w-auto px-8 md:px-12 py-3 md:py-4 text-base md:text-lg font-syncopate uppercase tracking-wider inline-block">Enter Sua+</a>
+    </div>
+</section>
+
+{% endblock %}
+

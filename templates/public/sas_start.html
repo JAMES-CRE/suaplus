@@ -1,0 +1,31 @@
+﻿{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Start Self-Assessment  Sua+{% endblock %}
+
+{% block content %}
+<div class="max-w-xl mx-auto px-6 py-24 text-center">
+
+    <h1 class="font-syncopate text-4xl md:text-5xl uppercase tracking-widest text-kec-charcoal mb-6">
+        Start your Sua+
+    </h1>
+
+    <p class="text-base text-kec-grey max-w-md mx-auto mb-10">
+        Enter your KNUST email address. We will send you a secure link to begin your 15-minute baseline self-assessment.
+    </p>
+
+    {% if error %}
+        <div class="mb-6 p-4 bg-red-50 text-kec-red text-sm rounded-kec">{{ error }}</div>
+    {% endif %}
+
+    <form method="post" class="max-w-sm mx-auto">
+        {% csrf_token %}
+        <input type="email" name="email" placeholder="name@st.knust.edu.gh" required class="form-input mb-4 text-center">
+        <button type="submit" class="btn-primary w-full font-syncopate uppercase tracking-wider text-base">
+            Send me the link
+        </button>
+    </form>
+
+</div>
+{% endblock %}
+

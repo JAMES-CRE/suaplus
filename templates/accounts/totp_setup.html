@@ -1,0 +1,73 @@
+﻿{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Set Up 2FA - Sua+ Hub{% endblock %}
+
+{% block content %}
+<div class="min-h-[80vh] flex items-center justify-center px-4 sm:px-6 py-8 md:py-12">
+
+    <div class="max-w-lg w-full">
+
+        <!-- Header -->
+        <div class="text-center mb-8 md:mb-10">
+            <div class="w-16 h-16 rounded-full bg-kec-charcoal flex items-center justify-center text-white mx-auto mb-4">
+                <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+            </div>
+            <h1 class="font-syncopate text-2xl md:text-3xl uppercase tracking-wider md:tracking-widest text-kec-charcoal mb-3">Two-Factor Setup</h1>
+            <p class="text-sm text-kec-grey leading-relaxed">
+                As a Super Admin, you must enable two-factor authentication before accessing the Hub.
+            </p>
+        </div>
+
+        <!-- Step 1 -->
+        <div class="bg-gray-50 border border-gray-100 rounded-kec p-5 sm:p-6 mb-6">
+            <h3 class="text-xs font-bold text-kec-red uppercase tracking-widest mb-4">Step 1. Scan this code</h3>
+            <div class="flex flex-col items-center gap-4">
+                <div class="bg-white rounded-kec p-4 border border-gray-200 inline-block">
+                    <img src="{% url 'totp_setup_qr' %}" alt="QR Code" class="w-40 h-40 sm:w-48 sm:h-48">
+                </div>
+                <p class="text-xs sm:text-sm text-kec-grey text-center">Open Google Authenticator, Authy, or 1Password and scan the code above.</p>
+                <p class="text-[10px] sm:text-xs text-kec-grey text-center mt-2">Or enter this key manually:</p>
+                <div class="w-full border border-gray-200 rounded-kec p-3 bg-white font-mono text-xs sm:text-sm text-kec-charcoal break-all text-center">
+                    {{ device.key|default:"-" }}
+                </div>
+            </div>
+        </div>
+
+        <!-- Step 2 -->
+        <form method="post" class="bg-white border border-gray-200 rounded-kec p-5 sm:p-6">
+            {% csrf_token %}
+
+            {% if messages %}
+                {% for message in messages %}
+                <div class="mb-4 p-3 bg-red-50 text-kec-red text-sm rounded-kec">{{ message }}</div>
+                {% endfor %}
+            {% endif %}
+
+            <h3 class="text-xs font-bold text-kec-red uppercase tracking-widest mb-4">Step 2. Enter the 6-digit code</h3>
+            
+            <input
+                type="text"
+                name="token"
+                inputmode="numeric"
+                pattern="[0-9]{6}"
+                maxlength="6"
+                required
+                autofocus
+                placeholder="000000"
+                class="form-input w-full text-center text-2xl font-mono tracking-widest mb-6"
+            >
+
+            <button type="submit" class="btn-primary w-full font-syncopate uppercase tracking-wider text-sm sm:text-base">
+                Confirm and Continue
+            </button>
+        </form>
+
+        <div class="text-center mt-6">
+            <p class="text-xs text-kec-grey">Need help? Email <strong class="text-kec-charcoal">elearning@knust.edu.gh</strong></p>
+        </div>
+
+    </div>
+
+</div>
+{% endblock %}

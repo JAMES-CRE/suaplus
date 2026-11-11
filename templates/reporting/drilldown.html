@@ -1,0 +1,82 @@
+﻿{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{{ title }}   Sua+ Pulse{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto px-4 sm:px-6 py-12 pb-32">
+
+    <a href="{% url 'dashboard' %}" class="text-sm text-kec-grey hover:text-kec-red mb-6 inline-block">
+        <!-- Back to Dashboard-->
+    </a>
+
+    <div class="mb-8">
+        <h1 class="font-syncopate text-3xl md:text-4xl uppercase tracking-widest text-kec-charcoal mb-2">
+            {{ title }}
+        </h1>
+        <p class="text-sm text-kec-grey">
+            {{ rows|length }} record{{ rows|length|pluralize }}
+        </p>
+    </div>
+
+    <!-- Active Filters Banner -->
+    {% if selected_programme or selected_unit %}
+    <div class="bg-gray-50 border border-gray-200 rounded-kec p-4 mb-8 flex flex-wrap items-center gap-2 text-sm">
+        <span class="text-kec-grey font-medium">Filtered by:</span>
+        {% if selected_programme %}
+            <span class="bg-white border border-gray-200 px-2 py-1 rounded text-kec-charcoal">Programme: {{ selected_programme.name }}</span>
+        {% endif %}
+        {% if selected_unit %}
+            <span class="bg-white border border-gray-200 px-2 py-1 rounded text-kec-charcoal">Unit: {{ selected_unit.name }}</span>
+        {% endif %}
+        <a href="{% url 'drilldown' kpi %}" class="text-xs text-kec-red hover:underline ml-auto">Clear filters</a>
+    </div>
+    {% endif %}
+
+    <hr class="border-gray-200 mb-8">
+
+    {% if rows %}
+        <!-- Desktop table (hidden on mobile) -->
+        <div class="hidden md:block border border-gray-200 rounded-kec overflow-hidden">
+            <table class="w-full text-left">
+                <thead>
+                    <tr class="bg-gray-50 border-b border-gray-200">
+                        <th class="px-4 py-3 text-xs font-semibold text-kec-grey uppercase tracking-wider">Name</th>
+                        <th class="px-4 py-3 text-xs font-semibold text-kec-grey uppercase tracking-wider">Detail</th>
+                        <th class="px-4 py-3 text-xs font-semibold text-kec-grey uppercase tracking-wider">When</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in rows %}
+                    <tr class="border-b border-gray-100 last:border-0 hover:bg-gray-50 transition-colors">
+                        <td class="px-4 py-3 text-sm text-kec-charcoal font-medium">{{ row.name }}</td>
+                        <td class="px-4 py-3 text-sm text-kec-grey">{{ row.detail|default:" " }}</td>
+                        <td class="px-4 py-3 text-sm text-kec-grey whitespace-nowrap">{{ row.when|date:"d M Y, H:i"|default:" " }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Mobile cards (hidden on desktop) -->
+        <div class="md:hidden space-y-3">
+            {% for row in rows %}
+            <div class="border border-gray-200 rounded-kec p-4">
+                <p class="text-sm text-kec-charcoal font-semibold mb-1">{{ row.name }}</p>
+                <p class="text-xs text-kec-grey mb-1">{{ row.detail|default:" " }}</p>
+                <p class="text-xs text-kec-grey">{{ row.when|date:"d M Y, H:i"|default:" " }}</p>
+            </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        <div class="text-center py-20">
+            <p class="text-base text-kec-grey">
+                No records match your filters.
+            </p>
+            <a href="{% url 'drilldown' kpi %}" class="btn-secondary inline-block mt-6 px-6 py-2">Clear filters</a>
+        </div>
+    {% endif %}
+
+</div>
+{% endblock %}
+

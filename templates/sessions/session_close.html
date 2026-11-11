@@ -1,0 +1,92 @@
+﻿{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Close Session - Sua+ Hub{% endblock %}
+
+{% block content %}
+<div class="max-w-xl mx-auto px-4 sm:px-6 py-8 md:py-12 pb-32">
+
+    <a href="{% url 'session_console' session.id %}" class="text-sm text-kec-grey hover:text-kec-red mb-6 inline-block">
+         Back to Console
+    </a>
+
+    <div class="mb-8 md:mb-10">
+        <h1 class="font-syncopate text-3xl md:text-4xl uppercase tracking-wider md:tracking-widest text-kec-charcoal mb-2">
+            Close Session
+        </h1>
+        <p class="text-sm text-kec-grey">This will finalise the attendance record.</p>
+    </div>
+
+    <hr class="border-gray-200 mb-8">
+
+    {% if messages %}
+        {% for message in messages %}
+            <div class="mb-6 p-3 bg-red-50 text-kec-red text-sm rounded-kec">{{ message }}</div>
+        {% endfor %}
+    {% endif %}
+
+    <!-- SESSION DETAILS -->
+    <p class="text-xs font-bold text-kec-red uppercase tracking-widest mb-4">Session Details</p>
+
+    <div class="bg-gray-50 border border-gray-100 rounded-kec p-4 sm:p-5 mb-8 space-y-2 text-sm">
+        <p><strong class="text-kec-charcoal">Title:</strong> <span class="text-kec-grey">{{ session.title }}</span></p>
+        <p><strong class="text-kec-charcoal">Programme:</strong> <span class="text-kec-grey">{{ session.programme.name }}</span></p>
+        <p><strong class="text-kec-charcoal">When:</strong> <span class="text-kec-grey">{{ session.start_at|date:"d M Y, H:i" }} - {{ session.end_at|time:"H:i" }}</span></p>
+        {% if session.venue %}
+            <p><strong class="text-kec-charcoal">Venue:</strong> <span class="text-kec-grey">{{ session.venue }}</span></p>
+        {% endif %}
+        <p><strong class="text-kec-charcoal">Status:</strong> <span class="text-kec-grey">{{ session.get_status_display }}</span></p>
+    </div>
+
+    <hr class="border-gray-200 mb-8">
+
+    <!-- ATTENDANCE -->
+    <p class="text-xs font-bold text-kec-red uppercase tracking-widest mb-4">Attendance</p>
+
+    <div class="grid grid-cols-3 gap-3 mb-8">
+        <div class="bg-gray-50 border border-gray-100 rounded-kec p-4 text-center">
+            <p class="text-2xl font-bold text-kec-charcoal">{{ total_checked_in }}</p>
+            <p class="text-[10px] text-kec-grey uppercase tracking-wider mt-1">Checked in</p>
+        </div>
+        <div class="bg-gray-50 border border-gray-100 rounded-kec p-4 text-center">
+            <p class="text-2xl font-bold text-emerald-600">{{ completed }}</p>
+            <p class="text-[10px] text-kec-grey uppercase tracking-wider mt-1">Completed</p>
+        </div>
+        <div class="bg-gray-50 border border-gray-100 rounded-kec p-4 text-center">
+            <p class="text-2xl font-bold text-amber-600">{{ partial }}</p>
+            <p class="text-[10px] text-kec-grey uppercase tracking-wider mt-1">Partial</p>
+        </div>
+    </div>
+
+    <hr class="border-gray-200 mb-8">
+
+    <!-- WHEN YOU CLOSE -->
+    <p class="text-xs font-bold text-kec-red uppercase tracking-widest mb-4">When You Close</p>
+
+    <ul class="space-y-2 mb-8 text-sm text-kec-grey bg-red-50/50 border border-red-100 rounded-kec p-4">
+        <li> No more check-ins will be accepted</li>
+        {% if partial > 0 %}
+            <li> <strong class="text-kec-charcoal">{{ partial }}</strong> partial attendee{{ partial|pluralize }} will be marked as absent</li>
+        {% endif %}
+        <li> This action cannot be undone</li>
+    </ul>
+
+    <hr class="border-gray-200 mb-8">
+
+    <!-- ACTIONS -->
+    <form method="post">
+        {% csrf_token %}
+
+        <div class="flex flex-col sm:flex-row gap-3 sm:justify-end">
+            <a href="{% url 'session_console' session.id %}" class="btn-secondary text-center w-full sm:w-auto">
+                Cancel
+            </a>
+            <button type="submit"
+                    class="w-full sm:w-auto text-center px-6 py-3 rounded-kec font-semibold text-sm bg-kec-red text-white hover:bg-red-700 transition-colors">
+                Close Session
+            </button>
+        </div>
+    </form>
+
+</div>
+{% endblock %}

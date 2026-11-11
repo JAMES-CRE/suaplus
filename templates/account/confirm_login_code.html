@@ -1,0 +1,36 @@
+﻿{% extends 'base.html' %}
+{% load static %}
+{% load allauth account %}
+
+{% block title %}Enter Sign-in Code - Sua+ Hub{% endblock %}
+
+{% block content %}
+<div class="min-h-[80vh] flex items-center justify-center px-6 py-12">
+    <div class="max-w-sm w-full">
+        <div class="text-center mb-10">
+            <h1 class="font-syncopate text-3xl uppercase tracking-widest text-kec-charcoal">Enter Code</h1>
+            <p class="text-sm text-kec-grey mt-4">We emailed a sign-in code to your address. Enter it below.</p>
+        </div>
+
+        <form method="POST" action="{% url 'account_confirm_login_code' %}" class="space-y-6">
+            {% csrf_token %}
+            {% if form.non_field_errors %}
+                <div class="p-3 bg-red-50 text-kec-red text-sm rounded-kec">
+                    {{ form.non_field_errors.0 }}
+                </div>
+            {% endif %}
+            <div>
+                <label for="id_code" class="block text-xs font-bold text-kec-red uppercase tracking-widest mb-2">Sign-in code</label>
+                <input type="text" name="code" id="id_code" required class="form-input" autocomplete="one-time-code">
+            </div>
+            {% if redirect_field_value %}
+                <input type="hidden" name="{{ redirect_field_name }}" value="{{ redirect_field_value }}" />
+            {% endif %}
+            <button type="submit" class="btn-primary w-full font-syncopate uppercase tracking-wider text-base">Sign In</button>
+            <a href="{% url 'cancel_login_code' %}" class="btn-secondary w-full text-center font-syncopate uppercase tracking-wider text-base block">Cancel</a>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+

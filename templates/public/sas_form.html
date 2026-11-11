@@ -1,0 +1,89 @@
+﻿{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Self-Assessment - Sua+{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto px-4 sm:px-6 py-8 md:py-12 pb-32">
+
+    <!-- Header -->
+    <div class="mb-8 md:mb-10">
+        <h1 class="font-syncopate text-3xl md:text-4xl uppercase tracking-wider md:tracking-widest text-kec-charcoal mb-2">
+            Self-Assessment
+        </h1>
+        <p class="text-sm md:text-base text-kec-charcoal font-medium mb-1">Hi {{ person.full_name }}.</p>
+        <p class="text-xs md:text-sm text-kec-grey">Rate your current ability for each statement.</p>
+    </div>
+
+    <hr class="border-gray-200 mb-8">
+
+    <form method="post" id="sas-form">
+        {% csrf_token %}
+
+        {% if messages %}
+            {% for message in messages %}
+                <div class="mb-6 p-3 bg-red-50 text-kec-red text-sm rounded-kec">{{ message }}</div>
+            {% endfor %}
+        {% endif %}
+
+        {% regroup competencies by domain as domain_groups %}
+
+        {% for group in domain_groups %}
+            <div class="mb-10 md:mb-12">
+                <p class="text-xs font-bold text-kec-red uppercase tracking-widest mb-6">{{ group.grouper.name }}</p>
+                
+                <div class="space-y-8 md:space-y-10">
+                    {% for comp in group.list %}
+                    <div>
+                        <p class="text-sm text-kec-charcoal font-medium mb-1">
+                            <strong class="font-mono text-xs bg-gray-100 px-1.5 py-0.5 rounded">{{ comp.code }}</strong> {{ comp.proficient_descriptor|default:comp.title }}
+                        </p>
+                        <p class="text-xs text-kec-grey mb-4">Rate your current ability level.</p>
+                        
+                        <!-- 5 Options: Stacked on mobile, row on desktop -->
+                        <div class="flex flex-col sm:flex-row gap-2 md:gap-3">
+                            <!-- Option 1 -->
+                            <label class="flex-1 cursor-pointer flex items-center gap-3 p-3 rounded-kec border border-gray-200 bg-white hover:border-kec-red transition-colors">
+                                <input type="radio" name="comp_{{ comp.id }}" value="1" class="w-4 h-4 text-kec-red focus:ring-kec-red">
+                                <span class="text-sm text-kec-charcoal"><strong></strong>  Aware</span>
+                            </label>
+                            <!-- Option 2 -->
+                            <label class="flex-1 cursor-pointer flex items-center gap-3 p-3 rounded-kec border border-gray-200 bg-white hover:border-kec-red transition-colors">
+                                <input type="radio" name="comp_{{ comp.id }}" value="2" class="w-4 h-4 text-kec-red focus:ring-kec-red">
+                                <span class="text-sm text-kec-charcoal"><strong></strong> Developing</span>
+                            </label>
+                            <!-- Option 3 -->
+                            <label class="flex-1 cursor-pointer flex items-center gap-3 p-3 rounded-kec border border-gray-200 bg-white hover:border-kec-red transition-colors">
+                                <input type="radio" name="comp_{{ comp.id }}" value="3" class="w-4 h-4 text-kec-red focus:ring-kec-red">
+                                <span class="text-sm text-kec-charcoal"><strong></strong>  Proficient</span>
+                            </label>
+                            <!-- Option 4 -->
+                            <label class="flex-1 cursor-pointer flex items-center gap-3 p-3 rounded-kec border border-gray-200 bg-white hover:border-kec-red transition-colors">
+                                <input type="radio" name="comp_{{ comp.id }}" value="4" class="w-4 h-4 text-kec-red focus:ring-kec-red">
+                                <span class="text-sm text-kec-charcoal"><strong></strong> Advanced</span>
+                            </label>
+                            <!-- Option 5 -->
+                            <label class="flex-1 cursor-pointer flex items-center gap-3 p-3 rounded-kec border border-gray-200 bg-white hover:border-kec-red transition-colors">
+                                <input type="radio" name="comp_{{ comp.id }}" value="5" class="w-4 h-4 text-kec-red focus:ring-kec-red">
+                                <span class="text-sm text-kec-charcoal"><strong></strong>  Leading</span>
+                            </label>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            <hr class="border-gray-200 mb-8">
+        {% endfor %}
+
+        <!-- Sticky Submit Button on Mobile -->
+        <div class="fixed bottom-0 left-0 w-full bg-white border-t border-gray-200 p-4 z-50 md:static md:bg-transparent md:border-0 md:p-0 md:mt-8">
+            <div class="max-w-2xl mx-auto">
+                <button type="submit" class="btn-primary w-full font-syncopate uppercase tracking-wider text-sm md:text-base py-3">
+                    Submit Assessment
+                </button>
+            </div>
+        </div>
+
+    </form>
+</div>
+{% endblock %}

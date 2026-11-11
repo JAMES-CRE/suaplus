@@ -1,0 +1,36 @@
+﻿{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Invalid Link - Sua+{% endblock %}
+
+{% block content %}
+<div class="min-h-[80vh] flex items-center justify-center px-6 py-12">
+    <div class="max-w-md w-full text-center">
+
+        <h1 class="font-syncopate text-4xl md:text-5xl uppercase tracking-widest text-kec-red mb-6">
+            Invalid Link
+        </h1>
+
+        <hr class="border-gray-200 w-24 mx-auto mb-8">
+
+        <p class="text-base text-kec-grey leading-relaxed mb-6">
+            This link has expired, been revoked, or is no longer valid.
+        </p>
+
+        <p class="text-sm text-kec-grey mb-10">
+            If you've already completed your self-assessment, you should have received a fresh passport link in your email.
+        </p>
+
+        <div class="space-y-4">
+            <a href="{% url 'resend_link' %}" class="btn-primary w-full block text-center font-syncopate uppercase tracking-wider text-base">
+                Request a New Link
+            </a>
+            <a href="/" class="text-xs text-kec-grey hover:text-kec-red underline block">
+                Back to Home
+            </a>
+        </div>
+
+    </div>
+</div>
+{% endblock %}
+

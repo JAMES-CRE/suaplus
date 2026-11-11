@@ -1,0 +1,34 @@
+﻿{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Report an Error - Sua+{% endblock %}
+
+{% block content %}
+<div class="max-w-md mx-auto px-6 py-12 pb-32">
+
+    <h1 class="font-syncopate text-4xl md:text-5xl uppercase tracking-widest text-kec-charcoal mb-4">
+        Report an Error
+    </h1>
+
+    <p class="text-sm text-kec-grey leading-relaxed mb-8">
+        Tell us what is wrong with your record. A facilitator will review and correct it.
+    </p>
+
+    <hr class="border-gray-200 mb-8">
+
+    <form method="post">
+        {% csrf_token %}
+
+        <div class="mb-6">
+            <label class="block text-xs font-bold text-kec-red uppercase tracking-widest mb-3">What is the error?</label>
+            <textarea name="message" rows="5" required class="form-input" placeholder="Describe the error..."></textarea>
+        </div>
+
+        <button type="submit" class="btn-primary w-full font-syncopate uppercase tracking-wider text-base">
+            Submit Report
+        </button>
+    </form>
+
+</div>
+{% endblock %}
+

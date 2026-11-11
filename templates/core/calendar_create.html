@@ -1,0 +1,157 @@
+﻿{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Add Period   Academic Calendar{% endblock %}
+
+{% block content %}
+<div class="max-w-xl mx-auto px-4 sm:px-6 py-8 md:py-12 pb-32">
+
+    <a href="{% url 'calendar_list' %}" class="text-sm text-kec-grey hover:text-kec-red mb-6 inline-block">
+         Back to Calendar
+    </a>
+
+    <div class="mb-8 md:mb-10">
+        <h1 class="font-syncopate text-3xl md:text-4xl uppercase tracking-wider md:tracking-widest text-kec-charcoal mb-2">
+            Add Period
+        </h1>
+        <p class="text-sm text-kec-grey">
+            Define a semester or academic year for KPIs and headcounts.
+        </p>
+    </div>
+
+    <hr class="border-gray-200 mb-8 md:mb-10">
+
+    {% if messages %}
+        {% for message in messages %}
+            <div class="mb-6 p-3 bg-red-50 text-kec-red text-sm rounded-kec">{{ message }}</div>
+        {% endfor %}
+    {% endif %}
+
+    <form method="post">
+        {% csrf_token %}
+
+        {% if form.non_field_errors %}
+            <div class="mb-6 p-4 bg-red-50 text-kec-red text-sm rounded-kec">
+                {{ form.non_field_errors.0 }}
+            </div>
+        {% endif %}
+
+        <p class="text-xs font-bold text-kec-red uppercase tracking-widest mb-6">Period</p>
+
+        <div class="space-y-5 md:space-y-6 mb-8 md:mb-10">
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-5 md:gap-6">
+                <div>
+                    <label for="id_year_start" class="block text-xs font-semibold text-kec-grey uppercase tracking-wider mb-2">
+                        Year start
+                    </label>
+                    <input
+                        type="number"
+                        name="year_start"
+                        id="id_year_start"
+                        value="{{ form.year_start.value|default:'' }}"
+                        placeholder="2025"
+                        min="2020"
+                        max="2100"
+                        required
+                        class="form-input w-full">
+                    {% if form.year_start.errors %}
+                        <p class="text-xs text-kec-red mt-1">{{ form.year_start.errors.0 }}</p>
+                    {% endif %}
+                </div>
+                <div>
+                    <label for="id_year_end" class="block text-xs font-semibold text-kec-grey uppercase tracking-wider mb-2">
+                        Year end
+                    </label>
+                    <input
+                        type="number"
+                        name="year_end"
+                        id="id_year_end"
+                        value="{{ form.year_end.value|default:'' }}"
+                        placeholder="2026"
+                        min="2020"
+                        max="2100"
+                        required
+                        class="form-input w-full">
+                    {% if form.year_end.errors %}
+                        <p class="text-xs text-kec-red mt-1">{{ form.year_end.errors.0 }}</p>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div>
+                <label for="id_semester" class="block text-xs font-semibold text-kec-grey uppercase tracking-wider mb-2">
+                    Semester
+                </label>
+                <select name="semester" id="id_semester" class="form-input w-full" required>
+                    <option value="">Select semester</option>
+                    <option value="0" {% if form.semester.value == "0" %}selected{% endif %}>Full year</option>
+                    <option value="1" {% if form.semester.value == "1" %}selected{% endif %}>First semester</option>
+                    <option value="2" {% if form.semester.value == "2" %}selected{% endif %}>Second semester</option>
+                    <option value="3" {% if form.semester.value == "3" %}selected{% endif %}>Summer</option>
+                </select>
+                {% if form.semester.errors %}
+                    <p class="text-xs text-kec-red mt-1">{{ form.semester.errors.0 }}</p>
+                {% endif %}
+            </div>
+
+        </div>
+
+        <hr class="border-gray-200 mb-8 md:mb-10">
+
+        <p class="text-xs font-bold text-kec-red uppercase tracking-widest mb-6">Dates</p>
+
+        <div class="space-y-5 md:space-y-6 mb-8 md:mb-10">
+
+            <!-- Matches the exact grid classes of the Year fields above -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-5 md:gap-6">
+                <div>
+                    <label for="id_start_date" class="block text-xs font-semibold text-kec-grey uppercase tracking-wider mb-2">
+                        Start date
+                    </label>
+                    <input
+                        type="date"
+                        name="start_date"
+                        id="id_start_date"
+                        value="{{ form.start_date.value|default:'' }}"
+                        required
+                        class="form-input w-full">
+                    {% if form.start_date.errors %}
+                        <p class="text-xs text-kec-red mt-1">{{ form.start_date.errors.0 }}</p>
+                    {% endif %}
+                </div>
+                <div>
+                    <label for="id_end_date" class="block text-xs font-semibold text-kec-grey uppercase tracking-wider mb-2">
+                        End date
+                    </label>
+                    <input
+                        type="date"
+                        name="end_date"
+                        id="id_end_date"
+                        value="{{ form.end_date.value|default:'' }}"
+                        required
+                        class="form-input w-full">
+                    {% if form.end_date.errors %}
+                        <p class="text-xs text-kec-red mt-1">{{ form.end_date.errors.0 }}</p>
+                    {% endif %}
+                </div>
+            </div>
+
+        </div>
+
+        <hr class="border-gray-200 mb-8 md:mb-10">
+
+        <div class="flex flex-col sm:flex-row gap-3 sm:justify-end">
+            <a href="{% url 'calendar_list' %}" class="btn-secondary text-center w-full sm:w-auto">
+                Cancel
+            </a>
+            <button type="submit" class="btn-primary w-full sm:w-auto">
+                Save Period
+            </button>
+        </div>
+
+    </form>
+
+</div>
+{% endblock %}
+

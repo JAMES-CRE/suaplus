@@ -1,0 +1,91 @@
+﻿{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Anonymise Person - Sua+ Hub{% endblock %}
+
+{% block content %}
+<div class="max-w-xl mx-auto px-4 sm:px-6 py-8 md:py-12 pb-32">
+
+    <a href="{% url 'dsr_dashboard' %}" class="text-sm text-kec-grey hover:text-kec-red mb-6 inline-block">
+         Back to DSR Dashboard
+    </a>
+
+    <div class="mb-8 md:mb-10">
+        <h1 class="font-syncopate text-3xl md:text-4xl uppercase tracking-wider md:tracking-widest text-kec-red mb-2">
+            Anonymise Person
+        </h1>
+        <p class="text-sm text-kec-red font-medium">
+            This action cannot be undone.
+        </p>
+    </div>
+
+    <hr class="border-gray-200 mb-8">
+
+    {% if messages %}
+        {% for message in messages %}
+            <div class="mb-6 p-3 bg-red-50 text-kec-red text-sm rounded-kec">{{ message }}</div>
+        {% endfor %}
+    {% endif %}
+
+    <!-- PERSON -->
+    <p class="text-xs font-bold text-kec-red uppercase tracking-widest mb-4">Person</p>
+
+    <div class="bg-gray-50 border border-gray-100 rounded-kec p-4 sm:p-5 mb-8">
+        <p class="text-lg text-kec-charcoal font-semibold mb-1">{{ person.full_name }}</p>
+        <p class="text-sm text-kec-grey">
+            {{ person.get_affiliation_display }}
+            {% if person.unit %}  {{ person.unit.name }}{% endif %}
+        </p>
+        <p class="text-sm text-kec-grey font-mono mt-1 break-all">{{ person.email|default:"-" }}</p>
+    </div>
+
+    <hr class="border-gray-200 mb-8">
+
+    {% if person.is_anonymised %}
+        <!-- Already anonymised state -->
+        <div class="p-4 sm:p-5 bg-gray-50 border border-gray-200 rounded-kec mb-8">
+            <p class="text-sm text-kec-charcoal font-semibold mb-1">
+                Already anonymised
+            </p>
+            <p class="text-sm text-kec-grey">
+                This person was anonymised on {{ person.anonymised_at|date:"d M Y, H:i" }}.
+                No further action is required.
+            </p>
+        </div>
+
+        <a href="{% url 'dsr_dashboard' %}" class="btn-secondary w-full block text-center">
+            Back to DSR Dashboard
+        </a>
+
+    {% else %}
+        <!-- What will happen -->
+        <p class="text-xs font-bold text-kec-red uppercase tracking-widest mb-4">What will happen</p>
+
+        <ul class="space-y-2 mb-8 text-sm text-kec-grey bg-red-50/50 border border-red-100 rounded-kec p-4">
+            <li> Name will become <strong class="text-kec-charcoal">"Anonymised User {{ person.id }}"</strong></li>
+            <li> Email will be replaced with a placeholder address</li>
+            <li> Phone and staff number will be cleared</li>
+            <li> Attendance and evidence rows stay intact so aggregate counts are preserved</li>
+            <li> This action cannot be undone</li>
+        </ul>
+
+        <hr class="border-gray-200 mb-8">
+
+        <!-- Actions -->
+        <form method="post">
+            {% csrf_token %}
+
+            <div class="flex flex-col sm:flex-row gap-3 sm:justify-end">
+                <a href="{% url 'dsr_dashboard' %}" class="btn-secondary text-center w-full sm:w-auto">
+                    Cancel
+                </a>
+                <button type="submit"
+                        class="w-full sm:w-auto text-center px-6 py-3 rounded-kec font-semibold text-sm bg-kec-red text-white hover:bg-red-700 transition-colors">
+                    Anonymise Person
+                </button>
+            </div>
+        </form>
+    {% endif %}
+
+</div>
+{% endblock %}

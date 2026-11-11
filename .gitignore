@@ -13,3 +13,4 @@ Thumbs.db
 .pytest_cache/
 .ruff_cache/
 node_modules/
+celerybeat-schedule*

@@ -1,0 +1,66 @@
+﻿{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Nominate   Sua+ Hub{% endblock %}
+
+{% block content %}
+<div class="max-w-xl mx-auto px-4 sm:px-6 py-8 md:py-12 pb-32">
+
+    <a href="{% url 'scout_list' %}" class="text-sm text-kec-grey hover:text-kec-red mb-6 inline-block">
+         Back to Scout List
+    </a>
+
+    <div class="mb-8 md:mb-10">
+        <h1 class="font-syncopate text-3xl md:text-4xl uppercase tracking-wider md:tracking-widest text-kec-charcoal mb-2">
+            Nominate
+        </h1>
+        <p class="text-sm text-kec-grey">Submit a nomination for a trainer tier.</p>
+    </div>
+
+    <hr class="border-gray-200 mb-8">
+
+    {% if messages %}
+        {% for message in messages %}
+        <div class="mb-6 p-3 bg-red-50 text-kec-red text-sm rounded-kec">{{ message }}</div>
+        {% endfor %}
+    {% endif %}
+
+    <!-- Person Details Card -->
+    <div class="bg-gray-50 border border-gray-100 rounded-kec p-5 md:p-6 mb-8 md:mb-10">
+        <p class="text-sm text-kec-charcoal mb-2"><strong class="text-kec-charcoal font-semibold">Person:</strong> <span class="text-kec-grey">{{ tier_status.person.full_name }}</span></p>
+        <p class="text-sm text-kec-charcoal mb-2"><strong class="text-kec-charcoal font-semibold">Programme:</strong> <span class="text-kec-grey">{{ tier_status.programme.name }}</span></p>
+        <p class="text-sm text-kec-charcoal mb-2"><strong class="text-kec-charcoal font-semibold">Tier:</strong> <span class="text-xs bg-gray-200 px-2 py-1 rounded-full text-kec-charcoal ml-1">{{ tier_status.get_tier_display }}</span></p>
+        <p class="text-sm text-kec-charcoal"><strong class="text-kec-charcoal font-semibold">Criteria met:</strong> <span class="text-kec-grey">{{ tier_status.criteria_met }} of {{ tier_status.criteria_total }}</span></p>
+    </div>
+
+    <form method="post">
+        {% csrf_token %}
+
+        <div class="mb-8">
+            <label for="comments" class="block text-xs font-semibold text-kec-grey uppercase tracking-wider mb-2">
+                Nomination comments (optional)
+            </label>
+            <textarea 
+                name="comments" 
+                id="comments" 
+                rows="4" 
+                class="form-input w-full" 
+                placeholder="Why are you nominating this person for this tier?"></textarea>
+        </div>
+
+        <hr class="border-gray-200 mb-8">
+
+        <div class="flex flex-col sm:flex-row gap-3 sm:justify-end">
+            <a href="{% url 'scout_list' %}" class="btn-secondary text-center w-full sm:w-auto">
+                Cancel
+            </a>
+            <button type="submit" class="btn-primary w-full sm:w-auto">
+                Submit Nomination
+            </button>
+        </div>
+
+    </form>
+
+</div>
+{% endblock %}
+

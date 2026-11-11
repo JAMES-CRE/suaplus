@@ -1,0 +1,52 @@
+{% load static %}
+
+<div class="text-center">
+
+    <!-- QR Code (Generated locally, base64-embedded) -->
+    <div class="inline-block border border-gray-200 rounded-kec p-3 sm:p-4 bg-white mb-4 max-w-full">
+        <img 
+            src="{{ qr_image_data }}" 
+            alt="Check-in QR Code" 
+            class="w-48 h-48 sm:w-[220px] sm:h-[220px] object-contain max-w-full">
+    </div>
+
+    <p class="text-xs text-kec-grey mb-6">
+        Refreshes in <span id="qr-countdown" class="font-semibold text-kec-charcoal">{{ expires_in }}</span>s
+    </p>
+
+    <!-- Session Code -->
+    <p class="text-[10px] sm:text-xs font-semibold text-kec-grey uppercase tracking-wider mb-2">Or enter code</p>
+
+    <div class="border border-gray-200 rounded-kec px-4 py-2 sm:py-3 bg-gray-50 font-mono text-lg sm:text-xl font-bold text-kec-charcoal tracking-widest mb-6 inline-block">
+        {{ session.session_code }}
+    </div>
+
+    <!-- Full Check-in URL (with token, for debugging) -->
+    <p class="text-[10px] sm:text-xs font-semibold text-kec-grey uppercase tracking-wider mb-2">Check-in URL</p>
+
+    <p class="text-[11px] sm:text-xs font-mono text-kec-grey break-all px-2">
+        <a href="{{ checkin_url }}" target="_blank" class="text-kec-red hover:underline">
+            {{ checkin_url }}
+        </a>
+    </p>
+
+</div>
+
+<!-- Countdown ticker -->
+<script>
+    (function () {
+        var el = document.getElementById('qr-countdown');
+        if (!el) return;
+        var seconds = parseInt(el.innerText, 10);
+        if (isNaN(seconds)) return;
+
+        var interval = setInterval(function () {
+            seconds -= 1;
+            if (seconds < 0) {
+                clearInterval(interval);
+                return;
+            }
+            el.innerText = seconds;
+        }, 1000);
+    })();
+</script>

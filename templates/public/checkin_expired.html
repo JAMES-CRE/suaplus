@@ -1,0 +1,36 @@
+﻿{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}QR Expired - Sua+{% endblock %}
+
+{% block content %}
+<div class="min-h-[80vh] flex items-center justify-center px-4 sm:px-6 py-12">
+    <div class="max-w-md w-full text-center">
+
+        <!-- Warning Icon -->
+        <div class="w-20 h-20 rounded-full bg-red-50 flex items-center justify-center text-kec-red mx-auto mb-6 border border-red-100">
+            <svg class="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+            </svg>
+        </div>
+
+        <!-- Headline -->
+        <h1 class="font-syncopate text-3xl md:text-4xl uppercase tracking-wider md:tracking-widest text-kec-red mb-3">
+            QR Expired
+        </h1>
+
+        <!-- Subtitle -->
+        <p class="text-sm sm:text-base text-kec-grey leading-relaxed mb-8 max-w-sm mx-auto">
+            This QR code has expired. Ask the facilitator to show the current code, then scan again.
+        </p>
+
+        <hr class="border-gray-200 w-16 mx-auto mb-8">
+
+        <!-- Action -->
+        <a href="/" class="btn-secondary w-full block text-center">
+            Back to Home
+        </a>
+
+    </div>
+</div>
+{% endblock %}

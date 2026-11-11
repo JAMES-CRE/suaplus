@@ -1,0 +1,61 @@
+﻿{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Credential Verified - Sua+{% endblock %}
+
+{% block content %}
+<div class="min-h-[80vh] flex items-center justify-center px-6 py-12">
+    <div class="max-w-md w-full text-center">
+
+        <h1 class="font-syncopate text-4xl md:text-5xl uppercase tracking-widest text-green-700 mb-4">
+            Credential Verified
+        </h1>
+
+        <p class="text-sm text-kec-grey mb-8">
+            This credential was issued by KNUST and has not been tampered with.
+        </p>
+
+        <hr class="border-gray-200 w-24 mx-auto mb-8">
+
+        <div class="text-left space-y-6">
+            <!-- Issued To -->
+            <div>
+                <p class="text-xs font-bold text-kec-red uppercase tracking-widest mb-1">Issued To</p>
+                <p class="text-base text-kec-charcoal">{{ badge.credentialSubject.id }}</p>
+            </div>
+
+            <!-- Achievement -->
+            <div>
+                <p class="text-xs font-bold text-kec-red uppercase tracking-widest mb-1">Achievement</p>
+                <p class="text-base text-kec-charcoal">{{ badge.credentialSubject.achievement.name }}</p>
+            </div>
+
+            <!-- Criteria -->
+            <div>
+                <p class="text-xs font-bold text-kec-red uppercase tracking-widest mb-1">Criteria</p>
+                <p class="text-sm text-kec-grey">{{ badge.credentialSubject.achievement.criteria.narrative }}</p>
+            </div>
+
+            <!-- Issued By -->
+            <div>
+                <p class="text-xs font-bold text-kec-red uppercase tracking-widest mb-1">Issued By</p>
+                <p class="text-base text-kec-charcoal">{{ badge.issuer.name }}</p>
+            </div>
+
+            <!-- Issued On -->
+            <div>
+                <p class="text-xs font-bold text-kec-red uppercase tracking-widest mb-1">Issued On</p>
+                <p class="text-base text-kec-charcoal">{{ badge.issuanceDate }}</p>
+            </div>
+        </div>
+
+        <hr class="border-gray-200 w-24 mx-auto mt-8 mb-6">
+
+        <p class="text-xs text-kec-grey">
+            This is an Open Badges 3.0 compliant credential.
+        </p>
+
+    </div>
+</div>
+{% endblock %}
+

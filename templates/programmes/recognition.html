@@ -1,0 +1,64 @@
+﻿{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Recognition   Sua+ Hub{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto px-4 sm:px-6 py-8 md:py-12 pb-32">
+
+    <a href="/hub/" class="text-sm text-kec-grey hover:text-kec-red mb-6 inline-block">
+         Back to Hub
+    </a>
+
+    <div class="mb-8 md:mb-10">
+        <h1 class="font-syncopate text-3xl md:text-4xl uppercase tracking-wider md:tracking-widest text-kec-charcoal mb-2">
+            Recognition
+        </h1>
+        <p class="text-sm text-kec-grey">
+            Certified trainers and their cascade reach.
+        </p>
+    </div>
+
+    <hr class="border-gray-200 mb-8 md:mb-10">
+
+    {% if trainers %}
+        <div class="space-y-4">
+            {% for ts in trainers %}
+            <div class="border border-gray-200 rounded-kec p-5 md:p-6 bg-white">
+
+                <div class="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
+                    <div class="flex-1">
+                        <p class="text-lg text-kec-charcoal font-semibold mb-1">
+                            {{ ts.person.full_name }}
+                        </p>
+                        <p class="text-sm text-kec-grey">
+                            {{ ts.programme.name }}  {{ ts.get_tier_display }}
+                        </p>
+                    </div>
+                    <div class="md:text-right border-t md:border-t-0 border-gray-100 pt-3 md:pt-0 mt-1 md:mt-0">
+                        <p class="text-xs sm:text-sm text-kec-grey">
+                            {{ ts.session_count }} session{{ ts.session_count|pluralize }}
+                             {{ ts.direct_count }} direct trainee{{ ts.direct_count|pluralize }}
+                        </p>
+                        {% if ts.cascade_multiplier %}
+                        <p class="text-base sm:text-lg text-kec-charcoal font-semibold mt-1">
+                            {{ ts.cascade_multiplier }}- cascade
+                        </p>
+                        {% endif %}
+                    </div>
+                </div>
+
+            </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        <div class="text-center py-20">
+            <p class="text-base text-kec-grey">
+                No certified trainers yet.
+            </p>
+        </div>
+    {% endif %}
+
+</div>
+{% endblock %}
+

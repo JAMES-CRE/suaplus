@@ -1,0 +1,106 @@
+﻿{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Executive Memos - Sua+ Hub{% endblock %}
+
+{% block content %}
+<div class="max-w-5xl mx-auto px-4 sm:px-6 py-8 md:py-12 pb-32">
+
+    <a href="/hub/" class="text-sm text-kec-grey hover:text-kec-red mb-6 inline-block">
+         Back to Hub
+    </a>
+
+    <div class="mb-8 md:mb-10 flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+        <div>
+            <h1 class="font-syncopate text-3xl md:text-4xl uppercase tracking-wider md:tracking-widest text-kec-charcoal mb-2">
+                Executive Memos
+            </h1>
+            <p class="text-sm text-kec-grey">
+                {{ count }} memo{{ count|pluralize }}
+            </p>
+        </div>
+        <a href="{% url 'memo_generate' %}" class="btn-primary w-full sm:w-auto px-6 py-3 text-center">
+            + Generate Memo
+        </a>
+    </div>
+
+    <hr class="border-gray-200 mb-8">
+
+    {% if messages %}
+        {% for message in messages %}
+            <div class="mb-6 p-3 bg-red-50 text-kec-red text-sm rounded-kec">{{ message }}</div>
+        {% endfor %}
+    {% endif %}
+
+    {% if memos %}
+        <!-- Desktop table (hidden on mobile) -->
+        <div class="hidden md:block border border-gray-200 rounded-kec overflow-hidden">
+            <table class="w-full text-left">
+                <thead>
+                    <tr class="bg-gray-50 border-b border-gray-200">
+                        <th class="px-4 py-3 text-xs font-semibold text-kec-grey uppercase tracking-wider">Period</th>
+                        <th class="px-4 py-3 text-xs font-semibold text-kec-grey uppercase tracking-wider">Scope</th>
+                        <th class="px-4 py-3 text-xs font-semibold text-kec-grey uppercase tracking-wider">Version</th>
+                        <th class="px-4 py-3 text-xs font-semibold text-kec-grey uppercase tracking-wider">Source</th>
+                        <th class="px-4 py-3 text-xs font-semibold text-kec-grey uppercase tracking-wider text-right">Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for m in memos %}
+                    <tr class="border-b border-gray-100 last:border-0 hover:bg-gray-50 transition-colors">
+                        <td class="px-4 py-4">
+                            <p class="text-sm text-kec-charcoal font-medium">{{ m.period_label }}</p>
+                            <p class="text-xs text-kec-grey mt-0.5">{{ m.created_at|date:"d M Y" }}</p>
+                        </td>
+                        <td class="px-4 py-4 text-sm text-kec-grey">
+                            {{ m.scope.programme|default:"All programmes" }}
+                        </td>
+                        <td class="px-4 py-4 text-sm text-kec-grey">v{{ m.version }}</td>
+                        <td class="px-4 py-4 text-sm {% if m.used_ai %}text-kec-charcoal{% else %}text-kec-grey{% endif %}">
+                            {% if m.used_ai %}AI-assisted{% else %}Template{% endif %}
+                        </td>
+                        <td class="px-4 py-4 text-right">
+                            <a href="{% url 'memo_detail' m.id %}" class="text-sm font-semibold text-kec-charcoal hover:text-kec-red">
+                                View 
+                            </a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Mobile cards (hidden on desktop) -->
+        <div class="md:hidden space-y-3">
+            {% for m in memos %}
+            <div class="border border-gray-200 rounded-kec p-5">
+                <p class="text-base text-kec-charcoal font-bold mb-1">{{ m.period_label }}</p>
+                <p class="text-sm text-kec-grey mb-1">
+                    {{ m.scope.programme|default:"All programmes" }}  {{ m.created_at|date:"d M Y" }}
+                </p>
+                <p class="text-xs {% if m.used_ai %}text-kec-charcoal{% else %}text-kec-grey{% endif %} mb-4">
+                    v{{ m.version }}  {% if m.used_ai %}AI-assisted{% else %}Template{% endif %}
+                </p>
+                <a href="{% url 'memo_detail' m.id %}" class="text-sm font-semibold text-kec-charcoal hover:text-kec-red">
+                    View 
+                </a>
+            </div>
+            {% endfor %}
+        </div>
+
+    {% else %}
+        <div class="text-center py-20">
+            <div class="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center text-kec-grey mx-auto mb-4">
+                <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+            </div>
+            <p class="text-base text-kec-grey mb-6">
+                No memos yet.
+            </p>
+            <a href="{% url 'memo_generate' %}" class="btn-primary w-full sm:w-auto inline-block px-8 py-3">
+                Generate your first report
+            </a>
+        </div>
+    {% endif %}
+
+</div>
+{% endblock %}

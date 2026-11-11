@@ -1,0 +1,29 @@
+﻿<div>
+
+    <!-- Count -->
+    <div class="mb-5 sm:mb-6 flex items-baseline gap-2">
+        <p class="text-4xl sm:text-5xl font-bold text-kec-charcoal leading-none">{{ count }}</p>
+        <p class="text-xs sm:text-sm text-kec-grey">checked in</p>
+    </div>
+
+    <!-- Roster -->
+    {% if attendances %}
+        <div class="border border-gray-200 rounded-kec overflow-hidden">
+            {% for a in attendances %}
+            <div class="px-3 sm:px-4 py-2.5 sm:py-3 {% if not forloop.last %}border-b border-gray-100{% endif %}">
+                <p class="text-sm font-semibold text-kec-charcoal break-words">{{ a.person.full_name }}</p>
+                <p class="text-[11px] sm:text-xs text-kec-grey mt-0.5">
+                    {{ a.get_method_display }}
+                    {% if a.check_in_at %}  {{ a.check_in_at|date:"H:i" }}{% endif %}
+                    {% if a.status == "completed" %}  <span class="text-emerald-700 font-medium">checked out</span>{% endif %}
+                </p>
+            </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        <div class="border border-gray-200 rounded-kec p-6 sm:p-8 text-center">
+            <p class="text-xs sm:text-sm text-kec-grey">No one has checked in yet.</p>
+        </div>
+    {% endif %}
+
+</div>

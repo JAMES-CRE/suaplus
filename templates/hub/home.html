@@ -1,0 +1,157 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Sua+ Hub{% endblock %}
+
+{% block content %}
+<div class="max-w-5xl mx-auto px-4 sm:px-6 py-8 md:py-12 pb-32">
+
+    <!-- Header -->
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between mb-8 md:mb-12 gap-4">
+        <div>
+            <h1 class="font-syncopate text-3xl md:text-5xl uppercase tracking-wider md:tracking-widest text-kec-charcoal mb-2">
+                Sua+ Hub
+            </h1>
+            <p class="text-base text-kec-grey">
+                Welcome, {{ person.full_name|default:user.email }}
+            </p>
+        </div>
+        
+    </div>
+
+    <hr class="border-gray-200 mb-8 md:mb-10">
+
+    <!-- Menu Grid -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+
+        <!-- MY PASSPORT (Everyone) -->
+        <a href="{% url 'my_passport' %}" class="border border-gray-200 rounded-kec p-6 hover:border-kec-red transition-colors group bg-[#FAFAFA] flex flex-col">
+            <div class="w-10 h-10 rounded-lg bg-red-50 flex items-center justify-center text-kec-red mb-4 group-hover:bg-red-100 transition-colors">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V8a2 2 0 00-2-2h-5m-4 0V5a2 2 0 114 0v1m-4 0a2 2 0 104 0m-5 8a2 2 0 100-4 2 2 0 000 4zm0 0c1.306 0 2.417.835 2.83 2M9 14a3.001 3.001 0 00-2.83 2M15 11h3m-3 4h2"></path></svg>
+            </div>
+            <h3 class="text-lg text-kec-charcoal font-semibold mb-2 group-hover:text-kec-red">My Sua+ Passport</h3>
+            <p class="text-sm text-kec-grey leading-relaxed flex-grow">View your stamps, competency levels, and trainer progress.</p>
+        </a>
+
+        <!-- DASHBOARD (Executives & Admins) -->
+        {% if is_exec %}
+        <a href="{% url 'dashboard' %}" class="border border-gray-200 rounded-kec p-6 hover:border-kec-red transition-colors group bg-[#FAFAFA] flex flex-col">
+            <div class="w-10 h-10 rounded-lg bg-red-50 flex items-center justify-center text-kec-red mb-4 group-hover:bg-red-100 transition-colors">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>
+            </div>
+            <h3 class="text-lg text-kec-charcoal font-semibold mb-2 group-hover:text-kec-red">Sua+ Pulse</h3>
+            <p class="text-sm text-kec-grey leading-relaxed flex-grow">View live KPIs, reach, coverage, and cascade multiplier charts.</p>
+        </a>
+        {% endif %}
+
+        <!-- SCOUT LIST (Programme Owners & Admins) -->
+        {% if is_owner %}
+        <a href="{% url 'scout_list' %}" class="border border-gray-200 rounded-kec p-6 hover:border-kec-red transition-colors group bg-[#FAFAFA] flex flex-col">
+            <div class="w-10 h-10 rounded-lg bg-red-50 flex items-center justify-center text-kec-red mb-4 group-hover:bg-red-100 transition-colors">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"></path></svg>
+            </div>
+            <h3 class="text-lg text-kec-charcoal font-semibold mb-2 group-hover:text-kec-red">Scout List</h3>
+            <p class="text-sm text-kec-grey leading-relaxed flex-grow">See who is eligible for a trainer tier and nominate them.</p>
+        </a>
+        {% endif %}
+
+        <!-- NOMINATIONS (Programme Owners & Admins) -->
+        {% if is_owner %}
+        <a href="{% url 'nomination_list' %}" class="border border-gray-200 rounded-kec p-6 hover:border-kec-red transition-colors group bg-[#FAFAFA] flex flex-col">
+            <div class="w-10 h-10 rounded-lg bg-red-50 flex items-center justify-center text-kec-red mb-4 group-hover:bg-red-100 transition-colors">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+            </div>
+            <h3 class="text-lg text-kec-charcoal font-semibold mb-2 group-hover:text-kec-red">Nominations</h3>
+            <p class="text-sm text-kec-grey leading-relaxed flex-grow">Review and approve pending trainer nominations.</p>
+        </a>
+        {% endif %}
+
+        <!-- SESSIONS (Facilitators & Admins) -->
+        {% if is_facilitator %}
+        <a href="{% url 'session_list' %}" class="border border-gray-200 rounded-kec p-6 hover:border-kec-red transition-colors group bg-[#FAFAFA] flex flex-col">
+            <div class="w-10 h-10 rounded-lg bg-red-50 flex items-center justify-center text-kec-red mb-4 group-hover:bg-red-100 transition-colors">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+            </div>
+            <h3 class="text-lg text-kec-charcoal font-semibold mb-2 group-hover:text-kec-red">Sessions</h3>
+            <p class="text-sm text-kec-grey leading-relaxed flex-grow">Create workshops, project QR codes, and manage rosters.</p>
+        </a>
+        {% endif %}
+
+        <!-- EXECUTIVE MEMOS (Executives & Admins) -->
+        {% if is_exec %}
+        <a href="{% url 'memo_list' %}" class="border border-gray-200 rounded-kec p-6 hover:border-kec-red transition-colors group bg-[#FAFAFA] flex flex-col">
+            <div class="w-10 h-10 rounded-lg bg-red-50 flex items-center justify-center text-kec-red mb-4 group-hover:bg-red-100 transition-colors">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+            </div>
+            <h3 class="text-lg text-kec-charcoal font-semibold mb-2 group-hover:text-kec-red">Executive Memos</h3>
+            <p class="text-sm text-kec-grey leading-relaxed flex-grow">Generate and print termly reports for the Vice-Chancellor.</p>
+        </a>
+        {% endif %}
+
+        <!-- PARTNER REPORTS (Executives & Admins) -->
+        {% if is_exec %}
+        <a href="{% url 'partner_report_list' %}" class="border border-gray-200 rounded-kec p-6 hover:border-kec-red transition-colors group bg-[#FAFAFA] flex flex-col">
+            <div class="w-10 h-10 rounded-lg bg-red-50 flex items-center justify-center text-kec-red mb-4 group-hover:bg-red-100 transition-colors">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
+            </div>
+            <h3 class="text-lg text-kec-charcoal font-semibold mb-2 group-hover:text-kec-red">Partner Reports</h3>
+            <p class="text-sm text-kec-grey leading-relaxed flex-grow">View reach and impact for external partner organisations.</p>
+        </a>
+        {% endif %}
+
+        <!-- COMPETENCY LIBRARY (Admins & Curators) -->
+        {% if is_admin or is_curator %}
+        <a href="{% url 'library_dashboard' %}" class="border border-gray-200 rounded-kec p-6 hover:border-kec-red transition-colors group bg-[#FAFAFA] flex flex-col">
+            <div class="w-10 h-10 rounded-lg bg-red-50 flex items-center justify-center text-kec-red mb-4 group-hover:bg-red-100 transition-colors">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path></svg>
+            </div>
+            <h3 class="text-lg text-kec-charcoal font-semibold mb-2 group-hover:text-kec-red">Competency Library</h3>
+            <p class="text-sm text-kec-grey leading-relaxed flex-grow">Manage frameworks, competencies, and level descriptors.</p>
+        </a>
+        {% endif %}
+
+        <!-- DATA REQUESTS & AUDIT (Admins Only) -->
+        {% if is_admin %}
+        <a href="{% url 'dsr_dashboard' %}" class="border border-gray-200 rounded-kec p-6 hover:border-kec-red transition-colors group bg-[#FAFAFA] flex flex-col">
+            <div class="w-10 h-10 rounded-lg bg-red-50 flex items-center justify-center text-kec-red mb-4 group-hover:bg-red-100 transition-colors">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+            </div>
+            <h3 class="text-lg text-kec-charcoal font-semibold mb-2 group-hover:text-kec-red">Data Requests</h3>
+            <p class="text-sm text-kec-grey leading-relaxed flex-grow">Export or anonymise participant data for DPA compliance.</p>
+        </a>
+        {% endif %}
+
+        <!-- CREDENTIALS (Everyone) -->
+        <a href="{% url 'credential_submit' %}" class="border border-gray-200 rounded-kec p-6 hover:border-kec-red transition-colors group bg-[#FAFAFA] flex flex-col">
+            <div class="w-10 h-10 rounded-lg bg-red-50 flex items-center justify-center text-kec-red mb-4 group-hover:bg-red-100 transition-colors">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+            </div>
+            <h3 class="text-lg text-kec-charcoal font-semibold mb-2 group-hover:text-kec-red">Submit Credential</h3>
+            <p class="text-sm text-kec-grey leading-relaxed flex-grow">Upload an external certificate (e.g., Google) for approval.</p>
+        </a>
+
+        <!-- REVIEW CREDENTIALS (Owners, Focal Persons, Admins) -->
+        {% if is_owner or is_focal or is_admin %}
+        <a href="{% url 'credential_review_queue' %}" class="border border-gray-200 rounded-kec p-6 hover:border-kec-red transition-colors group bg-[#FAFAFA] flex flex-col">
+            <div class="w-10 h-10 rounded-lg bg-red-50 flex items-center justify-center text-kec-red mb-4 group-hover:bg-red-100 transition-colors">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"></path></svg>
+            </div>
+            <h3 class="text-lg text-kec-charcoal font-semibold mb-2 group-hover:text-kec-red">Review Credentials</h3>
+            <p class="text-sm text-kec-grey leading-relaxed flex-grow">Approve or reject external certificates submitted by staff.</p>
+        </a>
+        {% endif %}
+
+        <!-- ACADEMIC CALENDAR (Admins Only) -->
+        {% if is_admin %}
+        <a href="{% url 'calendar_list' %}" class="border border-gray-200 rounded-kec p-6 hover:border-kec-red transition-colors group bg-[#FAFAFA] flex flex-col">
+            <div class="w-10 h-10 rounded-lg bg-red-50 flex items-center justify-center text-kec-red mb-4 group-hover:bg-red-100 transition-colors">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+            </div>
+            <h3 class="text-lg text-kec-charcoal font-semibold mb-2 group-hover:text-kec-red">Academic Calendar</h3>
+            <p class="text-sm text-kec-grey leading-relaxed flex-grow">Manage the semesters used for KPIs and headcounts.</p>
+        </a>
+        {% endif %}
+
+    </div>
+</div>
+{% endblock %}

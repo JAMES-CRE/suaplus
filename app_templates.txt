@@ -1,0 +1,5 @@
+C:\projects\suaplus\apps\accounts\templates\accounts\person_list.html
+C:\projects\suaplus\apps\audit\templates\audit\dsr_erase.html
+C:\projects\suaplus\apps\passport\templates\passport\credential_submit.html
+C:\projects\suaplus\apps\passport\templates\passport\credential_submitted.html
+C:\projects\suaplus\apps\passport\templates\passport\transcript.html

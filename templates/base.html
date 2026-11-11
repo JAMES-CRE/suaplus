@@ -1,0 +1,51 @@
+﻿{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}KEC{% endblock %}</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{% static 'css/main.css' %}">
+    <script src="{% static 'js/htmx.min.js' %}" defer></script>
+    <style>
+        html { scroll-behavior: smooth; }
+        * { box-shadow: none !important; }
+    </style>
+</head>
+<body class="flex flex-col min-h-screen bg-[#FAFAFA]">
+
+    <!-- Top Navigation (Sticky) -->
+    <header class="sticky top-0 z-40 bg-white border-b border-gray-200 shrink-0">
+        <div class="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
+            <img src="{% static 'img/kec-logo.png' %}" alt="KEC" class="h-12 font-bold">
+            <div class="flex items-center gap-3">
+                {% if user.is_authenticated %}
+                    <a href="{% url 'account_logout' %}" class="btn-ghost text-xs px-4 py-2 min-h-[36px]">Sign out</a>
+                {% else %}
+                    <!-- <a href="/hub/" class="btn-primary text-xs px-6 py-2 min-h-[36px]">Staff Login</a> -->
+                {% endif %}
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content (Flex-grow fills the space) -->
+    <main class="flex-grow flex flex-col">
+        {% block content %}
+        {% endblock %}
+    </main>
+
+    <!-- Footer (Sticky) -->
+    <footer class="sticky bottom-0 z-40 bg-white border-t border-gray-200 shrink-0">
+        <div class="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
+            <img src="{% static 'img/kec-icon.png' %}" alt="KEC" class="h-8">
+            <p class="text-sm text-gray-600"> 2026 KNUST E-Learning Centre. All rights reserved.</p>
+        </div>
+    </footer>
+
+    <script>
+        // ... (keep your existing animations script here) ...
+    </script>
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

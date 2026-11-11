@@ -1,0 +1,102 @@
+﻿{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Review Nomination   Sua+ Hub{% endblock %}
+
+{% block content %}
+<div class="max-w-xl mx-auto px-4 sm:px-6 py-8 md:py-12 pb-32">
+
+    <a href="{% url 'nomination_list' %}" class="text-sm text-kec-grey hover:text-kec-red mb-6 inline-block">
+         Back to Nominations
+    </a>
+
+    <div class="mb-8 md:mb-10">
+        <h1 class="font-syncopate text-3xl md:text-4xl uppercase tracking-wider md:tracking-widest text-kec-charcoal mb-2">
+            Review Nomination
+        </h1>
+        <p class="text-sm text-kec-grey">Approve or reject this trainer promotion.</p>
+    </div>
+
+    <hr class="border-gray-200 mb-8">
+
+    {% if messages %}
+        {% for message in messages %}
+        <div class="mb-6 p-3 bg-red-50 text-kec-red text-sm rounded-kec">{{ message }}</div>
+        {% endfor %}
+    {% endif %}
+
+    <!-- Person Details Card -->
+    <div class="bg-gray-50 border border-gray-100 rounded-kec p-5 md:p-6 mb-8 md:mb-10">
+        <div class="space-y-2 text-sm">
+            <p><strong class="text-kec-charcoal font-semibold">Person:</strong> <span class="text-kec-grey">{{ nomination.person.full_name }}</span></p>
+            <p><strong class="text-kec-charcoal font-semibold">Programme:</strong> <span class="text-kec-grey">{{ nomination.programme.name }}</span></p>
+            <p><strong class="text-kec-charcoal font-semibold">Tier:</strong> <span class="text-xs bg-gray-200 px-2 py-1 rounded-full text-kec-charcoal ml-1">{{ nomination.get_tier_display }}</span></p>
+            <p><strong class="text-kec-charcoal font-semibold">Nominated by:</strong> <span class="text-kec-grey">{{ nomination.nominated_by.get_full_name|default:nomination.nominated_by.username }}</span></p>
+            <p><strong class="text-kec-charcoal font-semibold">Submitted:</strong> <span class="text-kec-grey">{{ nomination.created_at|date:"d M Y, H:i" }}</span></p>
+        </div>
+    </div>
+
+    {% if criteria_list %}
+    <div class="mb-8 md:mb-10">
+        <p class="text-xs font-bold text-kec-red uppercase tracking-widest mb-4">Criteria Met</p>
+        <div class="bg-gray-50 border border-gray-100 rounded-kec p-4 sm:p-5 space-y-3">
+            {% for item in criteria_list %}
+            <div class="flex items-start gap-3">
+                {% if item.met %}
+                    <span class="w-5 h-5 shrink-0 mt-0.5 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center text-[10px] font-bold"></span>
+                {% else %}
+                    <span class="w-5 h-5 shrink-0 mt-0.5 rounded-full bg-gray-200 text-gray-400 flex items-center justify-center text-[10px] font-bold">-</span>
+                {% endif %}
+                <span class="text-sm text-kec-charcoal/80 break-words">{{ item.criterion }}</span>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    {% if nomination.comments %}
+    <div class="mb-8 md:mb-10">
+        <p class="text-xs font-bold text-kec-red uppercase tracking-widest mb-4">Nominator Comments</p>
+        <div class="bg-gray-50 border border-gray-100 rounded-kec p-4 sm:p-5">
+            <p class="text-sm text-kec-charcoal whitespace-pre-wrap">{{ nomination.comments }}</p>
+        </div>
+    </div>
+    {% endif %}
+
+    {% if not person_has_account %}
+    <div class="mb-8 p-4 bg-red-50 text-kec-red text-sm rounded-kec border border-red-100">
+        <strong>Note:</strong> this person has no Hub account. Their role will be created on approval, but they won't be able to sign in until a Hub account is provisioned.
+    </div>
+    {% endif %}
+
+    <form method="post">
+        {% csrf_token %}
+
+        <div class="mb-8">
+            <label for="comment" class="block text-xs font-semibold text-kec-grey uppercase tracking-wider mb-2">
+                Review comments (optional)
+            </label>
+            <textarea 
+                name="comment" 
+                id="comment" 
+                rows="3" 
+                class="form-input w-full" 
+                placeholder="Reason for your decision"></textarea>
+        </div>
+
+        <hr class="border-gray-200 mb-8">
+
+        <div class="flex flex-col sm:flex-row gap-3 sm:justify-end">
+            <button type="submit" name="decision" value="rejected"
+                    class="w-full sm:w-auto text-center px-6 py-3 rounded-kec font-semibold text-sm bg-white border border-gray-200 text-kec-red hover:border-kec-red transition-colors">
+                Reject
+            </button>
+            <button type="submit" name="decision" value="approved" class="btn-primary w-full sm:w-auto">
+                Approve Nomination
+            </button>
+        </div>
+    </form>
+
+</div>
+{% endblock %}
+

@@ -1,0 +1,36 @@
+﻿{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}No Hub Access - Sua+{% endblock %}
+
+{% block content %}
+<div class="min-h-[80vh] flex items-center justify-center px-6 py-12">
+    <div class="max-w-md w-full text-center">
+
+        <h1 class="font-syncopate text-4xl md:text-5xl uppercase tracking-widest text-kec-charcoal mb-6">
+            No Hub Access
+        </h1>
+
+        <hr class="border-gray-200 w-24 mx-auto mb-8">
+
+        <p class="text-base text-kec-grey leading-relaxed mb-6">
+            Your account exists, but it isn't linked to a Sua+ profile yet.
+        </p>
+
+        <p class="text-sm text-kec-grey leading-relaxed mb-10">
+            If you're a participant, you don't need an account - your passport link will arrive by email.
+            If you're KNUST staff and believe you need Hub access, please contact the
+            KNUST E-Learning Centre to have your account provisioned.
+        </p>
+
+        <div class="space-y-4">
+            <a href="/" class="btn-secondary block text-sm">Back to Home</a>
+            <a href="{% url 'account_logout' %}" class="text-xs text-kec-grey hover:text-kec-red underline block">
+                Log out
+            </a>
+        </div>
+
+    </div>
+</div>
+{% endblock %}
+

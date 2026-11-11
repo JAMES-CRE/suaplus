@@ -1,0 +1,134 @@
+﻿{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Check out - {{ session.title }}{% endblock %}
+
+{% block content %}
+<div class="max-w-xl mx-auto px-6 py-12 pb-32">
+
+    <!-- Back Link -->
+    <a href="/" class="text-sm text-kec-grey hover:text-kec-red mb-8 inline-block font-medium">
+         Back
+    </a>
+
+    <!-- Session Header -->
+    <div class="mb-10">
+        <h1 class="font-syncopate text-4xl md:text-5xl uppercase tracking-widest text-kec-charcoal mb-4">
+            Check out
+        </h1>
+        
+        <p class="text-xs font-bold text-kec-red uppercase tracking-widest mb-2">Session Details</p>
+        <p class="text-base text-kec-charcoal font-semibold mb-4">{{ session.title }}</p>
+        
+        <div class="text-sm text-kec-grey space-y-2 leading-relaxed">
+            <p><strong class="font-semibold text-kec-charcoal">Date:</strong> {{ session.start_at|date:"d M Y" }}</p>
+            <p><strong class="font-semibold text-kec-charcoal">Time:</strong> {{ session.start_at|time:"H:i" }} to {{ session.end_at|time:"H:i" }}</p>
+            {% if session.venue %}
+                <p><strong class="font-semibold text-kec-charcoal">Venue:</strong> {{ session.venue }}</p>
+            {% endif %}
+        </div>
+    </div>
+
+    <hr class="border-gray-200 mb-8">
+
+    <form method="post" id="checkout-form">
+        {% csrf_token %}
+
+        {% if form.non_field_errors %}
+            <div class="mb-6 p-3 bg-red-50 text-kec-red text-sm rounded-kec">
+                {{ form.non_field_errors.0 }}
+            </div>
+        {% endif %}
+
+        <!-- SECTION 1: CSAT -->
+        <div class="mb-10">
+            <p class="text-xs font-bold text-kec-red uppercase tracking-widest mb-4">How was the session?</p>
+            
+            <div class="flex gap-2 sm:gap-3 mb-2">
+                {% for i in "12345" %}
+                    <label class="flex-1 cursor-pointer">
+                        <input type="radio" name="csat" value="{{ forloop.counter }}" class="hidden peer" required>
+                        <span class="flex items-center justify-center aspect-square text-lg font-bold rounded-kec bg-white text-kec-charcoal border-2 border-gray-200 peer-checked:bg-kec-red peer-checked:text-white peer-checked:border-kec-red hover:border-kec-red/50 transition-all select-none">
+                            {{ forloop.counter }}
+                        </span>
+                    </label>
+                {% endfor %}
+            </div>
+            <div class="flex justify-between text-xs font-medium text-kec-grey px-1">
+                <span>Not useful</span>
+                <span>Very useful</span>
+            </div>
+        </div>
+
+        <hr class="border-gray-200 mb-8">
+
+        <!-- SECTION 2: COMPETENCY RATINGS -->
+        <div class="mb-10">
+            <p class="text-xs font-bold text-kec-red uppercase tracking-widest mb-4">After today...</p>
+            
+            <div class="space-y-6">
+                <!-- Competency 1 -->
+                <div>
+                    <p class="text-sm text-kec-charcoal font-medium mb-3">AI-02 Effective prompting</p>
+                    <div class="flex gap-2 sm:gap-3">
+                        {% for i in "12345" %}
+                            <label class="flex-1 cursor-pointer">
+                                <input type="radio" name="rating_AI-02" value="{{ forloop.counter }}" class="hidden peer">
+                                <!-- Changed py-2.5 to aspect-square so it is a perfect square -->
+                                <span class="flex items-center justify-center aspect-square text-base font-semibold rounded-kec bg-white text-kec-charcoal border-2 border-gray-200 peer-checked:bg-kec-red peer-checked:text-white peer-checked:border-kec-red hover:border-kec-red/50 transition-all select-none">
+                                    {{ forloop.counter }}
+                                </span>
+                            </label>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <!-- Competency 2 -->
+                <div>
+                    <p class="text-sm text-kec-charcoal font-medium mb-3">AI-05 AI in teaching</p>
+                    <div class="flex gap-2 sm:gap-3">
+                        {% for i in "12345" %}
+                            <label class="flex-1 cursor-pointer">
+                                <input type="radio" name="rating_AI-05" value="{{ forloop.counter }}" class="hidden peer">
+                                <!-- Changed py-2.5 to aspect-square so it is a perfect square -->
+                                <span class="flex items-center justify-center aspect-square text-base font-semibold rounded-kec bg-white text-kec-charcoal border-2 border-gray-200 peer-checked:bg-kec-red peer-checked:text-white peer-checked:border-kec-red hover:border-kec-red/50 transition-all select-none">
+                                    {{ forloop.counter }}
+                                </span>
+                            </label>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <hr class="border-gray-200 mb-8">
+
+        <!-- SECTION 3: FREE TEXT -->
+        <div class="mb-10">
+            <p class="text-xs font-bold text-kec-red uppercase tracking-widest mb-4">What will you apply?</p>
+            <textarea name="what_will_you_apply" rows="3" class="form-input" placeholder="Describe what you'll put into practice..."></textarea>
+        </div>
+
+
+
+        <!-- SECTION 4: TRAINER INTEREST -->
+        <div class="mb-10">
+            <label class="flex items-start gap-4 cursor-pointer">
+                <input type="checkbox" name="interested_in_training" id="id_interested" class="mt-1 w-4 h-4 text-kec-red border-gray-300 rounded focus:ring-kec-red">
+                <span class="text-sm text-kec-charcoal leading-snug">
+                    I'm interested in becoming a trainer
+                </span>
+            </label>
+        </div>
+
+        <!-- SUBMIT -->
+        <div class="mt-8">
+            <button type="submit" class="btn-primary w-full font-syncopate uppercase tracking-wider text-base">
+                Check out
+            </button>
+        </div>
+
+    </form>
+</div>
+{% endblock %}
+

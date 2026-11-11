@@ -1,0 +1,117 @@
+﻿{% extends 'base.html' %}
+{% load static %}
+{% load dict_extras %}
+
+{% block title %}Map Columns - Import{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto px-6 py-12 pb-32">
+
+    <a href="{% url 'import_upload' %}" class="text-sm text-kec-grey hover:text-kec-red mb-6 inline-block">
+         Back to Upload
+    </a>
+
+    <div class="mb-10">
+        <h1 class="font-syncopate text-4xl md:text-5xl uppercase tracking-widest text-kec-charcoal mb-2">
+            Map Columns
+        </h1>
+        <p class="text-sm text-kec-grey">
+            {{ session.title }} - {{ session.programme.name }}
+        </p>
+        <p class="text-xs text-kec-grey mt-1">
+            File has {{ columns|length }} column{{ columns|length|pluralize }}
+        </p>
+    </div>
+
+    <hr class="border-gray-200 mb-10">
+
+    {% if messages %}
+        {% for message in messages %}
+            <div class="mb-6 p-3 bg-red-50 text-kec-red text-sm rounded-kec">{{ message }}</div>
+        {% endfor %}
+    {% endif %}
+
+    <form method="post">
+        {% csrf_token %}
+
+        <p class="text-xs font-bold text-kec-red uppercase tracking-widest mb-6">Column Mapping</p>
+
+        <div class="space-y-6 mb-10">
+
+            <div>
+                <label for="email_col" class="block text-xs font-semibold text-kec-grey uppercase tracking-wider mb-2">
+                    Email column
+                </label>
+                <select name="email_col" id="email_col" class="form-input" required>
+                    <option value="">Select column</option>
+                    {% for col in columns %}
+                        <option value="{{ col }}">{{ col }}</option>
+                    {% endfor %}
+                </select>
+                <p class="text-xs text-kec-grey mt-1">
+                    Used to match or create Person records.
+                </p>
+            </div>
+
+            <div>
+                <label for="name_col" class="block text-xs font-semibold text-kec-grey uppercase tracking-wider mb-2">
+                    Full name column
+                </label>
+                <select name="name_col" id="name_col" class="form-input" required>
+                    <option value="">Select column</option>
+                    {% for col in columns %}
+                        <option value="{{ col }}">{{ col }}</option>
+                    {% endfor %}
+                </select>
+                <p class="text-xs text-kec-grey mt-1">
+                    Used when creating new Person records.
+                </p>
+            </div>
+
+        </div>
+
+        <hr class="border-gray-200 mb-10">
+
+        <p class="text-xs font-bold text-kec-red uppercase tracking-widest mb-4">Your File</p>
+
+        <div class="border border-gray-200 rounded-kec overflow-x-auto mb-10">
+            <table class="w-full text-xs font-mono">
+                <thead>
+                    <tr class="border-b border-gray-200 bg-gray-50">
+                        {% for col in columns %}
+                            <th class="px-3 py-2 text-left text-kec-charcoal font-semibold">{{ col }}</th>
+                        {% endfor %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in sample_rows %}
+                    <tr class="border-b border-gray-100">
+                        {% for col in columns %}
+                            <td class="px-3 py-2 text-kec-grey">{{ row|get_item:col|default:"-" }}</td>
+                        {% endfor %}
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <p class="text-xs text-kec-grey mb-10">
+            Showing {{ sample_rows|length }} of {{ total_rows }} row{{ total_rows|pluralize }}.
+        </p>
+
+        <hr class="border-gray-200 mb-10">
+
+        <div class="flex flex-col md:flex-row gap-4 justify-end">
+            <a href="{% url 'import_upload' %}" class="btn-secondary text-center">
+                Cancel
+            </a>
+            <button type="submit" class="btn-primary">
+                Preview 
+            </button>
+        </div>
+
+    </form>
+
+</div>
+{% endblock %}
+

@@ -1,0 +1,36 @@
+﻿{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Sign Out - Sua+ Hub{% endblock %}
+
+{% block content %}
+<div class="min-h-[80vh] flex items-center justify-center px-6 py-12">
+    <div class="max-w-md w-full text-center">
+
+
+        <h1 class="font-syncopate text-3xl md:text-4xl uppercase tracking-widest text-kec-charcoal mb-6">
+            Sign Out
+        </h1>
+
+        <hr class="border-gray-200 w-24 mx-auto mb-8">
+
+        <p class="text-base text-kec-grey leading-relaxed mb-10">
+            Are you sure you want to sign out of the Sua+ Hub?
+        </p>
+
+        <form method="post" action="{% url 'account_logout' %}" class="space-y-4">
+            {% csrf_token %}
+
+            <button type="submit" class="btn-primary w-full font-syncopate uppercase tracking-wider text-base">
+                Yes, Sign Out
+            </button>
+
+            <a href="/hub/" class="btn-secondary w-full block text-center">
+                Cancel
+            </a>
+        </form>
+
+    </div>
+</div>
+{% endblock %}
+

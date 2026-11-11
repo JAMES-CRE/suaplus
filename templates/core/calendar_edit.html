@@ -1,0 +1,133 @@
+﻿{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Edit Period   Academic Calendar{% endblock %}
+
+{% block content %}
+<div class="max-w-xl mx-auto px-4 sm:px-6 py-8 md:py-12 pb-32">
+
+    <a href="{% url 'calendar_list' %}" class="text-sm text-kec-grey hover:text-kec-red mb-6 inline-block">
+        
+    </a>
+
+    <div class="mb-8 md:mb-10">
+        <h1 class="font-syncopate text-3xl md:text-4xl uppercase tracking-wider md:tracking-widest text-kec-charcoal mb-2">
+            Edit Period
+        </h1>
+        <p class="text-sm text-kec-grey">
+            {{ period.year_start }}/{{ period.year_end }}  {{ period.get_semester_display }}
+        </p>
+    </div>
+
+    <hr class="border-gray-200 mb-8 md:mb-10">
+
+    {% if messages %}
+        {% for message in messages %}
+            <div class="mb-6 p-3 bg-red-50 text-kec-red text-sm rounded-kec">{{ message }}</div>
+        {% endfor %}
+    {% endif %}
+
+    <form method="post">
+        {% csrf_token %}
+
+        <p class="text-xs font-bold text-kec-red uppercase tracking-widest mb-6">Period</p>
+
+        <div class="space-y-5 md:space-y-6 mb-8 md:mb-10">
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-5 md:gap-6">
+                <div>
+                    <label for="id_year_start" class="block text-xs font-semibold text-kec-grey uppercase tracking-wider mb-2">
+                        Year start
+                    </label>
+                    <input
+                        type="number"
+                        name="year_start"
+                        id="id_year_start"
+                        value="{{ period.year_start }}"
+                        min="2020"
+                        max="2100"
+                        required
+                        class="form-input w-full">
+                </div>
+                <div>
+                    <label for="id_year_end" class="block text-xs font-semibold text-kec-grey uppercase tracking-wider mb-2">
+                        Year end
+                    </label>
+                    <input
+                        type="number"
+                        name="year_end"
+                        id="id_year_end"
+                        value="{{ period.year_end }}"
+                        min="2020"
+                        max="2100"
+                        required
+                        class="form-input w-full">
+                </div>
+            </div>
+
+            <div>
+                <label for="id_semester" class="block text-xs font-semibold text-kec-grey uppercase tracking-wider mb-2">
+                    Semester
+                </label>
+                <select name="semester" id="id_semester" class="form-input w-full" required>
+                    <option value="0" {% if period.semester == 0 %}selected{% endif %}>Full year</option>
+                    <option value="1" {% if period.semester == 1 %}selected{% endif %}>First semester</option>
+                    <option value="2" {% if period.semester == 2 %}selected{% endif %}>Second semester</option>
+                    <option value="3" {% if period.semester == 3 %}selected{% endif %}>Summer</option>
+                </select>
+            </div>
+
+        </div>
+
+        <hr class="border-gray-200 mb-8 md:mb-10">
+
+        <p class="text-xs font-bold text-kec-red uppercase tracking-widest mb-6">Dates</p>
+
+        <div class="space-y-5 md:space-y-6 mb-8 md:mb-10">
+
+            <!-- Matches the exact grid classes of the Year fields above -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-5 md:gap-6">
+                <div>
+                    <label for="id_start_date" class="block text-xs font-semibold text-kec-grey uppercase tracking-wider mb-2">
+                        Start date
+                    </label>
+                    <input
+                        type="date"
+                        name="start_date"
+                        id="id_start_date"
+                        value="{{ period.start_date|date:'Y-m-d' }}"
+                        required
+                        class="form-input w-full">
+                </div>
+                <div>
+                    <label for="id_end_date" class="block text-xs font-semibold text-kec-grey uppercase tracking-wider mb-2">
+                        End date
+                    </label>
+                    <input
+                        type="date"
+                        name="end_date"
+                        id="id_end_date"
+                        value="{{ period.end_date|date:'Y-m-d' }}"
+                        required
+                        class="form-input w-full">
+                </div>
+            </div>
+
+        </div>
+
+        <hr class="border-gray-200 mb-8 md:mb-10">
+
+        <div class="flex flex-col sm:flex-row gap-3 sm:justify-end">
+            <a href="{% url 'calendar_list' %}" class="btn-secondary text-center w-full sm:w-auto">
+                Cancel
+            </a>
+            <button type="submit" class="btn-primary w-full sm:w-auto">
+                Save Changes
+            </button>
+        </div>
+
+    </form>
+
+</div>
+{% endblock %}
+

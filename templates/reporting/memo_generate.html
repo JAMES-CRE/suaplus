@@ -1,0 +1,116 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Generate Memo - Sua+ Hub{% endblock %}
+
+{% block content %}
+<div class="max-w-xl mx-auto px-4 sm:px-6 py-8 md:py-12 pb-32">
+
+    <a href="{% url 'memo_list' %}" class="text-sm text-kec-grey hover:text-kec-red mb-6 inline-block">
+        ← Back to Memos
+    </a>
+
+    <div class="mb-8 md:mb-10">
+        <h1 class="font-syncopate text-3xl md:text-4xl uppercase tracking-wider md:tracking-widest text-kec-charcoal mb-2">
+            Generate Memo
+        </h1>
+        <p class="text-sm text-kec-grey">
+            The system gathers all figures for the chosen period and scope, then writes the narrative.
+        </p>
+    </div>
+
+    <hr class="border-gray-200 mb-8">
+
+    {% if messages %}
+        {% for message in messages %}
+            <div class="mb-6 p-3 bg-red-50 text-kec-red text-sm rounded-kec">{{ message }}</div>
+        {% endfor %}
+    {% endif %}
+
+    <form method="post">
+        {% csrf_token %}
+
+        <p class="text-xs font-bold text-kec-red uppercase tracking-widest mb-6">Period and Scope</p>
+
+        <div class="space-y-5 md:space-y-6 mb-8 md:mb-10">
+
+            <!-- Period label -->
+            <div>
+                <label for="period_label" class="block text-xs font-semibold text-kec-grey uppercase tracking-wider mb-2">
+                    Period label
+                </label>
+                <input
+                    type="text"
+                    name="period_label"
+                    id="period_label"
+                    value="{{ form_data.period_label|default:'' }}"
+                    placeholder="e.g. Michaelmas 2026"
+                    required
+                    class="form-input w-full">
+                <p class="text-xs text-kec-grey mt-1">
+                    This is the title shown on the memo. Use the academic term name.
+                </p>
+            </div>
+
+            <!-- Programme -->
+            <div>
+                <label for="programme" class="block text-xs font-semibold text-kec-grey uppercase tracking-wider mb-2">
+                    Programme (optional)
+                </label>
+                <select name="programme" id="programme" class="form-input w-full">
+                    <option value="">All programmes</option>
+                    {% for p in programmes %}
+                        <option value="{{ p.id }}" {% if form_data.programme == p.id|stringformat:"s" %}selected{% endif %}>
+                            {{ p.name }}
+                        </option>
+                    {% endfor %}
+                </select>
+                <p class="text-xs text-kec-grey mt-1">
+                    Leave blank to report across the whole university.
+                </p>
+            </div>
+
+            <!-- Since date -->
+            <div>
+                <label for="since" class="block text-xs font-semibold text-kec-grey uppercase tracking-wider mb-2">
+                    Since (optional)
+                </label>
+                <input
+                    type="date"
+                    name="since"
+                    id="since"
+                    value="{{ form_data.since|default:'' }}"
+                    class="form-input w-full">
+                <p class="text-xs text-kec-grey mt-1">
+                    Only include activity from this date onwards. Leave blank for all time.
+                </p>
+            </div>
+
+        </div>
+
+        <hr class="border-gray-200 mb-8">
+
+        <p class="text-xs font-bold text-kec-red uppercase tracking-widest mb-4">What happens next</p>
+
+        <ul class="space-y-2 mb-8 md:mb-10 text-sm text-kec-grey">
+            <li>· The system gathers every KPI for the chosen period and scope</li>
+            <li>· The narrative is written from the aggregated figures</li>
+            <li>· No personal data is sent to any AI service</li>
+            <li>· You land on the finished memo, ready to review or print</li>
+        </ul>
+
+        <hr class="border-gray-200 mb-8">
+
+        <div class="flex flex-col sm:flex-row gap-3 sm:justify-end">
+            <a href="{% url 'memo_list' %}" class="btn-secondary text-center w-full sm:w-auto">
+                Cancel
+            </a>
+            <button type="submit" class="btn-primary w-full sm:w-auto">
+                Generate Memo
+            </button>
+        </div>
+
+    </form>
+
+</div>
+{% endblock %}

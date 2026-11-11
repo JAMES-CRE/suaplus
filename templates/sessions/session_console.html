@@ -1,0 +1,168 @@
+﻿{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{{ session.title }} - Console{% endblock %}
+
+{% block content %}
+<div class="max-w-6xl mx-auto px-4 sm:px-6 py-8 md:py-12 pb-32">
+
+    <a href="{% url 'session_list' %}" class="text-sm text-kec-grey hover:text-kec-red mb-6 inline-flex items-center gap-1">
+        <span aria-hidden="true">←</span> Back to Sessions
+    </a>
+
+    <!-- Header -->
+    <div class="mb-8 md:mb-10">
+        <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div class="min-w-0">
+                <h1 class="font-syncopate text-2xl md:text-3xl uppercase tracking-wider md:tracking-widest text-kec-charcoal mb-2 break-words">{{ session.title }}</h1>
+                <p class="text-xs sm:text-sm text-kec-grey flex flex-wrap items-center gap-x-2 gap-y-1">
+                    <span>{{ session.programme.name }}</span>
+                    <span class="text-gray-300" aria-hidden="true">·</span>
+                    <!-- CHANGED: session.start to session.start_at -->
+                    <span>{{ session.start_at|date:"D d M Y" }}</span>
+                    <span class="text-gray-300" aria-hidden="true">·</span>
+                    <!-- CHANGED: session.start and session.end to session.start_at and session.end_at -->
+                    <span>{{ session.start_at|time:"H:i" }} – {{ session.end_at|time:"H:i" }}</span>
+                    {% if session.venue %}
+                        <span class="text-gray-300" aria-hidden="true">·</span>
+                        <span>{{ session.venue }}</span>
+                    {% endif %}
+                </p>
+            </div>
+            <span class="inline-flex items-center gap-2 text-xs sm:text-sm font-semibold px-3 py-1.5 rounded-full w-fit shrink-0
+                {% if session.status == 'open' %}bg-emerald-50 text-emerald-700
+                {% elif session.status == 'closed' %}bg-gray-100 text-kec-grey
+                {% elif session.status == 'cancelled' %}bg-red-50 text-kec-red
+                {% else %}bg-gray-100 text-kec-charcoal{% endif %}">
+                <span class="w-2 h-2 rounded-full
+                    {% if session.status == 'open' %}bg-emerald-500
+                    {% elif session.status == 'cancelled' %}bg-red-500
+                    {% else %}bg-gray-400{% endif %}" aria-hidden="true"></span>
+                {{ session.get_status_display }}
+            </span>
+        </div>
+    </div>
+
+    <hr class="border-gray-200 mb-8">
+
+    {% if messages %}
+    <div class="mb-6 space-y-2">
+        {% for message in messages %}
+        <div role="{% if 'error' in message.tags %}alert{% else %}status{% endif %}"
+             class="p-3 text-sm rounded-kec
+                {% if 'error' in message.tags %}bg-red-50 text-kec-red{% else %}bg-emerald-50 text-emerald-700{% endif %}">
+            {{ message }}
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- Two-column layout -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 md:gap-8">
+
+        <!-- Left: QR code -->
+        <div>
+            <div class="border border-gray-200 rounded-kec p-4 sm:p-6 bg-white">
+                <div class="flex items-center justify-between mb-4 sm:mb-6">
+                    <p class="text-xs font-bold text-kec-red uppercase tracking-widest">Check-in QR</p>
+                    <span class="text-[10px] sm:text-xs text-kec-grey">Rotates every 30s</span>
+                </div>
+
+                <!--
+                    QR fragment. It is loaded once here. After that the fragment refreshes itself exactly when
+                    its own code expires (see qr_fragment.html), so the QR on screen is never out of date.
+                    It is also refreshed when the tab becomes visible again, because browsers slow down timers
+                    in background tabs.
+                -->
+                <div id="qr-container"
+                     class="flex flex-col items-center justify-center min-h-[260px] sm:min-h-[280px] bg-gray-50 rounded-kec border border-gray-100 mb-4 p-4"
+                     hx-get="{% url 'session_qr_fragment' session.id %}"
+                     hx-trigger="load, visibilitychange[document.visibilityState==='visible'] from:document"
+                     hx-swap="innerHTML"
+                     aria-live="off">
+                    <div class="text-sm text-kec-grey">Loading QR code...</div>
+                </div>
+
+                <div class="flex flex-wrap items-center justify-between gap-3 text-xs sm:text-sm text-kec-grey">
+                    <span>Session code: <span class="font-mono font-bold text-kec-charcoal" id="session-code">{{ session.session_code }}</span></span>
+                    <span class="flex items-center gap-3">
+                        <button type="button" id="copy-code" class="hover:text-kec-red underline underline-offset-2">Copy code</button>
+                        <button type="button" id="qr-fullscreen" class="hover:text-kec-red underline underline-offset-2">Fullscreen</button>
+                    </span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right: Roster + Actions -->
+        <div>
+            <!-- Live Roster -->
+            <div class="border border-gray-200 rounded-kec bg-white mb-6">
+                <div class="p-4 sm:p-6 border-b border-gray-100 flex items-center justify-between">
+                    <p class="text-xs font-bold text-kec-red uppercase tracking-widest">Live Roster</p>
+                    <span class="text-[10px] sm:text-xs text-kec-grey">Updates every 5s</span>
+                </div>
+                <!-- Only polls while this tab is visible, which saves data and server load. -->
+                <div id="roster-container"
+                     class="p-4 sm:p-6 max-h-[400px] overflow-y-auto"
+                     hx-get="{% url 'session_roster_fragment' session.id %}"
+                     hx-trigger="load, every 5s [document.visibilityState==='visible']"
+                     hx-swap="innerHTML">
+                    <div class="text-sm text-kec-grey text-center py-8">Loading roster...</div>
+                </div>
+            </div>
+
+            <!-- Actions -->
+            <div class="space-y-3">
+                <a href="{% url 'import_upload' %}?session={{ session.id }}"
+                   class="btn-secondary w-full text-center block">
+                    Import Spreadsheet
+                </a>
+                {% if session.status != 'closed' and session.status != 'cancelled' %}
+                <a href="{% url 'session_checkout_console' session.id %}"
+                   class="btn-primary w-full text-center block">
+                    Start Check-out
+                </a>
+                <a href="{% url 'session_close' session.id %}"
+                   class="block w-full text-center px-6 py-3 rounded-kec font-semibold text-sm bg-kec-red text-white hover:bg-red-700 transition-colors">
+                    Close Session
+                </a>
+                {% endif %}
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+<style>
+    /* Fullscreen QR for projectors: white background, QR centred and large. */
+    #qr-container:fullscreen { background: #fff; justify-content: center; padding: 2rem; }
+    #qr-container:fullscreen img { width: min(70vh, 70vw); height: min(70vh, 70vw); max-width: none; }
+</style>
+
+<script>
+    (function () {
+        var copyBtn = document.getElementById('copy-code');
+        var fsBtn = document.getElementById('qr-fullscreen');
+        var box = document.getElementById('qr-container');
+
+        copyBtn.addEventListener('click', function () {
+            var code = document.getElementById('session-code').textContent.trim();
+            var done = function () {
+                copyBtn.textContent = 'Copied';
+                setTimeout(function () { copyBtn.textContent = 'Copy code'; }, 1500);
+            };
+            if (navigator.clipboard && window.isSecureContext) {
+                navigator.clipboard.writeText(code).then(done);
+            }
+        });
+
+        if (box.requestFullscreen) {
+            fsBtn.addEventListener('click', function () { box.requestFullscreen(); });
+        } else {
+            fsBtn.hidden = true;   // e.g. older iPhones
+        }
+    })();
+</script>
+{% endblock %}

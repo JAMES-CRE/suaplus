@@ -1,0 +1,189 @@
+﻿{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Competency Library - Sua+ Hub{% endblock %}
+
+{% block content %}
+<div class="max-w-6xl mx-auto px-6 py-12 pb-32">
+
+    <a href="/hub/" class="text-sm text-kec-grey hover:text-kec-red mb-6 inline-block">
+         Back to Hub
+    </a>
+
+    <div class="flex flex-col md:flex-row md:items-end md:justify-between gap-4 mb-8">
+        <div>
+            <h1 class="font-syncopate text-4xl md:text-5xl uppercase tracking-widest text-kec-charcoal mb-2">
+                Competency Library
+            </h1>
+            <p class="text-sm text-kec-grey">
+                {% if framework %}{{ framework.name }}{% else %}No framework{% endif %}
+            </p>
+        </div>
+        <a href="{% url 'competency_new' %}" class="btn-primary inline-block">
+            + New Competency
+        </a>
+    </div>
+
+    <hr class="border-gray-200 mb-8">
+
+    {% if messages %}
+        {% for message in messages %}
+            <div class="mb-6 p-3 bg-red-50 text-kec-red text-sm rounded-kec">{{ message }}</div>
+        {% endfor %}
+    {% endif %}
+
+    {% if frameworks %}
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-8">
+
+        <!-- LEFT: Frameworks + Domains -->
+        <div class="md:col-span-1">
+
+            <!-- Frameworks -->
+            <p class="text-xs font-bold text-kec-red uppercase tracking-widest mb-4">Frameworks</p>
+
+            <ul class="space-y-2 mb-10">
+                {% for fw in frameworks %}
+                <li>
+                    <a href="?framework={{ fw.id }}"
+                       class="block text-sm py-1 {% if framework.id == fw.id %}text-kec-charcoal font-semibold{% else %}text-kec-grey hover:text-kec-red{% endif %}">
+                        {% if framework.id == fw.id %}- {% endif %}{{ fw.name }}
+                    </a>
+                </li>
+                {% endfor %}
+            </ul>
+
+            <hr class="border-gray-200 mb-6">
+
+            <!-- Domains -->
+            <p class="text-xs font-bold text-kec-red uppercase tracking-widest mb-4">Domains</p>
+
+            {% if domains %}
+            <ul class="space-y-2">
+                {% for d in domains %}
+                <li>
+                    <a href="?framework={{ framework.id }}&domain={{ d.id }}"
+                       class="block text-sm py-1 {% if domain.id == d.id %}text-kec-charcoal font-semibold{% else %}text-kec-grey hover:text-kec-red{% endif %}">
+                        {% if domain.id == d.id %}- {% endif %}{{ d.name }}
+                    </a>
+                </li>
+                {% endfor %}
+            </ul>
+            {% else %}
+            <p class="text-sm text-kec-grey">No domains in this framework.</p>
+            {% endif %}
+
+        </div>
+
+        <!-- RIGHT: Competencies -->
+        <div class="md:col-span-3">
+
+            {% if domain %}
+            <div class="flex items-baseline justify-between mb-6">
+                <h2 class="text-xl text-kec-charcoal font-semibold">{{ domain.name }}</h2>
+                <p class="text-sm text-kec-grey">
+                    {{ competencies|length }} competenc{{ competencies|length|pluralize:"y,ies" }}
+                </p>
+            </div>
+
+            <hr class="border-gray-200 mb-6">
+
+            {% if competencies %}
+                <div class="space-y-4">
+
+                    {% for c in competencies %}
+                    <div class="border border-gray-200 rounded-kec p-5" x-data="{ open: false }">
+
+                        <div class="flex items-start justify-between gap-4">
+                            <div class="flex-1 min-w-0">
+                                <p class="font-mono text-xs text-kec-grey mb-1">{{ c.code }}</p>
+                                <p class="text-base text-kec-charcoal font-semibold mb-1">{{ c.title }}</p>
+                                {% if c.description %}
+                                <p class="text-sm text-kec-grey leading-relaxed line-clamp-2">{{ c.description|truncatewords:30 }}</p>
+                                {% endif %}
+                                <p class="text-xs text-kec-grey mt-2">
+                                    Used in {{ c.usage_count }} programme{{ c.usage_count|pluralize }}
+                                </p>
+                            </div>
+                            <div class="flex-shrink-0 flex flex-col items-end gap-2">
+                                <a href="{% url 'competency_edit' c.id %}" class="text-sm font-semibold text-kec-charcoal hover:text-kec-red">
+                                    Edit 
+                                </a>
+                                <button
+                                    onclick="toggleLevels('levels-{{ c.id }}')"
+                                    class="text-xs text-kec-grey hover:text-kec-red underline"
+                                    type="button">
+                                    Show levels
+                                </button>
+                            </div>
+                        </div>
+
+                        <div id="levels-{{ c.id }}" class="hidden mt-4 pt-4 border-t border-gray-100">
+                            {% if levels %}
+                            <ul class="space-y-2">
+                                {% for lv in levels %}
+                                <li class="text-sm">
+                                    <span class="font-semibold text-kec-charcoal">{{ lv.ordinal }} - {{ lv.label }}:</span>
+                                    <span class="text-kec-grey">
+                                        {% if lv.ordinal == 3 and c.proficient_descriptor %}
+                                            {{ c.proficient_descriptor }}
+                                        {% else %}
+                                            {{ lv.descriptor }}
+                                        {% endif %}
+                                    </span>
+                                </li>
+                                {% endfor %}
+                            </ul>
+                            {% else %}
+                            <p class="text-sm text-kec-grey">No level descriptors defined for this framework.</p>
+                            {% endif %}
+                        </div>
+
+                    </div>
+                    {% endfor %}
+
+                </div>
+            {% else %}
+                <div class="text-center py-20">
+                    <p class="text-base text-kec-grey">No competencies in this domain.</p>
+                </div>
+            {% endif %}
+
+            {% else %}
+            <div class="text-center py-20">
+                <p class="text-base text-kec-grey">
+                    {% if framework %}
+                        This framework has no domains yet.
+                    {% else %}
+                        No frameworks exist in the library.
+                    {% endif %}
+                </p>
+            </div>
+            {% endif %}
+
+        </div>
+
+    </div>
+    {% else %}
+    <div class="text-center py-20">
+        <p class="text-base text-kec-grey mb-6">No frameworks exist in the library.</p>
+    </div>
+    {% endif %}
+
+</div>
+
+<script>
+    function toggleLevels(id) {
+        const el = document.getElementById(id);
+        const btn = el.previousElementSibling.querySelector('button');
+        if (!el || !btn) return;
+        if (el.classList.contains('hidden')) {
+            el.classList.remove('hidden');
+            btn.textContent = 'Hide levels';
+        } else {
+            el.classList.add('hidden');
+            btn.textContent = 'Show levels';
+        }
+    }
+</script>
+{% endblock %}
+

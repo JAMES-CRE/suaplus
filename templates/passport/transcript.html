@@ -1,0 +1,219 @@
+﻿{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Transcript - {{ person.full_name }}</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Syncopate:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{% static 'css/main.css' %}">
+    <style>
+        body {
+            background-color: #F8FAFC;
+            color: #1A1A1A;
+            font-family: 'Inter', sans-serif;
+            margin: 0;
+            padding: 0;
+        }
+        .page-container {
+            max-width: 800px;
+            margin: 2rem auto;
+            background: white;
+            padding: 3rem;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+        }
+        h1, h2, h3 { font-family: 'Syncopate', sans-serif; text-transform: uppercase; letter-spacing: 0.05em; }
+        .text-grey { color: #6B7280; }
+        .text-charcoal { color: #1A1A1A; }
+        .border-top { border-top: 2px solid #1A1A1A; }
+        .border-bottom { border-bottom: 1px solid #E5E7EB; }
+        .table-row { border-bottom: 1px solid #E5E7EB; }
+        .table-header { border-bottom: 1px solid #E5E7EB; font-size: 0.75rem; text-transform: uppercase; color: #6B7280; }
+        
+        /* Screen-only print button */
+        .print-bar {
+            background: white;
+            padding: 1rem;
+            border-bottom: 1px solid #E5E7EB;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        
+        @media print {
+            body { background: white; }
+            .print-bar { display: none !important; }
+            .page-container { box-shadow: none; margin: 0; padding: 0; max-width: 100%; }
+            .border-top, .border-bottom, .table-row, .table-header { border-color: #999 !important; }
+            .text-grey { color: #444 !important; }
+            .text-charcoal { color: black !important; }
+            h1, h2, h3 { color: black !important; font-family: Georgia, serif !important; }
+            @page { margin: 2cm; }
+            table { min-width: 0 !important; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Print Bar (Hidden when printing) -->
+    <div class="print-bar">
+        <a href="{% url 'passport' token %}" style="text-decoration: none; color: #6B7280; font-weight: 500;">← Back to Passport</a>
+        <button onclick="window.print()" style="background: #D1121C; color: white; border: none; padding: 0.5rem 1rem; border-radius: 4px; font-weight: 600; cursor: pointer;">Print / Save as PDF</button>
+    </div>
+
+    <div class="page-container">
+        <!-- Header -->
+        <header class="mb-8 pb-6 border-top">
+            <p style="font-size: 0.75rem; font-weight: 700; color: #6B7280; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 0.5rem;">Sua+ Passport Transcript</p>
+            <h1 style="font-size: 2rem; margin: 0 0 1rem 0;">{{ person.full_name }}</h1>
+            
+            <div style="font-size: 0.875rem; color: #6B7280; line-height: 1.6;">
+                <p style="margin: 0;">
+                    {% if person.title %}{{ person.title }} {% endif %}
+                    {% if person.category %}{{ person.get_category_display|default:person.category }}{% endif %}
+                </p>
+                <p style="margin: 0;">
+                    {% if person.unit %}{{ person.unit.name }}{% elif person.unit_other %}{{ person.unit_other }}{% else %}No unit assigned{% endif %}
+                </p>
+                <p style="margin: 0;">{{ masked_email }}</p>
+            </div>
+            <p style="font-size: 0.75rem; color: #6B7280; margin-top: 1rem;">Generated on {{ printed_at|date:"d M Y, H:i" }}</p>
+        </header>
+
+        <!-- Trainer Progress -->
+        <section style="margin-bottom: 2rem;">
+            <h2 style="font-size: 0.875rem; border-bottom: 1px solid #E5E7EB; padding-bottom: 0.5rem; margin-bottom: 1rem;">Trainer Progress</h2>
+            {% if tiers %}
+                <table style="width: 100%; text-align: left; border-collapse: collapse; font-size: 0.875rem;">
+                    <thead>
+                        <tr class="table-header">
+                            <th style="padding: 0.5rem 0;">Programme</th>
+                            <th style="padding: 0.5rem 0;">Tier</th>
+                            <th style="padding: 0.5rem 0;">Status</th>
+                            <th style="padding: 0.5rem 0;">Criteria</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for ts in tiers %}
+                        <tr class="table-row">
+                            <td style="padding: 0.5rem 0;">{{ ts.programme.name }}</td>
+                            <td style="padding: 0.5rem 0;">{{ ts.get_tier_display }}</td>
+                            <td style="padding: 0.5rem 0; color: #6B7280;">{{ ts.get_status_display }}</td>
+                            <td style="padding: 0.5rem 0; color: #6B7280;">{{ ts.criteria_met }}/{{ ts.criteria_total }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            {% else %}
+                <p style="font-size: 0.875rem; color: #6B7280;">No trainer tiers recorded.</p>
+            {% endif %}
+        </section>
+
+        <!-- Competency Profile -->
+        <section style="margin-bottom: 2rem;">
+            <h2 style="font-size: 0.875rem; border-bottom: 1px solid #E5E7EB; padding-bottom: 0.5rem; margin-bottom: 1rem;">Competency Profile</h2>
+            {% if domains %}
+                {% for domain, competencies in domains.items %}
+                    <div style="margin-bottom: 1.5rem;">
+                        <h3 style="font-size: 0.75rem; font-weight: 600; margin-bottom: 0.5rem;">{{ domain.name }}</h3>
+                        <table style="width: 100%; text-align: left; border-collapse: collapse; font-size: 0.875rem;">
+                            <thead>
+                                <tr class="table-header">
+                                    <th style="padding: 0.4rem 0; width: 60px;">Code</th>
+                                    <th style="padding: 0.4rem 0;">Competency</th>
+                                    <th style="padding: 0.4rem 0; width: 100px;">Level</th>
+                                    <th style="padding: 0.4rem 0; width: 100px;">Evidence</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for ev in competencies %}
+                                <tr class="table-row">
+                                    <td style="padding: 0.4rem 0; color: #6B7280; font-family: monospace;">{{ ev.competency.code }}</td>
+                                    <td style="padding: 0.4rem 0;">{{ ev.competency.title }}</td>
+                                    <td style="padding: 0.4rem 0; font-weight: 600;">{{ ev.level.ordinal }} - {{ ev.level.label }}</td>
+                                    <td style="padding: 0.4rem 0; color: #6B7280;">{{ ev.get_type_display }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% endfor %}
+            {% else %}
+                <p style="font-size: 0.875rem; color: #6B7280;">No competencies recorded.</p>
+            {% endif %}
+        </section>
+
+        <!-- Credentials -->
+        <section style="margin-bottom: 2rem;">
+            <h2 style="font-size: 0.875rem; border-bottom: 1px solid #E5E7EB; padding-bottom: 0.5rem; margin-bottom: 1rem;">Credentials</h2>
+            {% if credentials %}
+                <table style="width: 100%; text-align: left; border-collapse: collapse; font-size: 0.875rem;">
+                    <thead>
+                        <tr class="table-header">
+                            <th style="padding: 0.5rem 0;">Title</th>
+                            <th style="padding: 0.5rem 0;">Issuer</th>
+                            <th style="padding: 0.5rem 0;">Issued</th>
+                            <th style="padding: 0.5rem 0;">Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for c in credentials %}
+                        <tr class="table-row">
+                            <td style="padding: 0.5rem 0;">{{ c.title }}</td>
+                            <td style="padding: 0.5rem 0; color: #6B7280;">{{ c.issuer|default:"-" }}</td>
+                            <td style="padding: 0.5rem 0; color: #6B7280;">{{ c.issued_at|date:"d M Y"|default:"-" }}</td>
+                            <td style="padding: 0.5rem 0; color: #6B7280;">{{ c.get_status_display }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            {% else %}
+                <p style="font-size: 0.875rem; color: #6B7280;">No credentials recorded.</p>
+            {% endif %}
+        </section>
+
+        <!-- Stamps -->
+        <section style="margin-bottom: 2rem;">
+            <h2 style="font-size: 0.875rem; border-bottom: 1px solid #E5E7EB; padding-bottom: 0.5rem; margin-bottom: 1rem;">Stamps ({{ stamp_count }})</h2>
+            {% if stamps %}
+                <table style="width: 100%; text-align: left; border-collapse: collapse; font-size: 0.875rem;">
+                    <thead>
+                        <tr class="table-header">
+                            <th style="padding: 0.5rem 0; width: 100px;">Date</th>
+                            <th style="padding: 0.5rem 0;">Session</th>
+                            <th style="padding: 0.5rem 0;">Programme</th>
+                            <th style="padding: 0.5rem 0; width: 80px;">Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for s in stamps %}
+                        <tr class="table-row">
+                            <td style="padding: 0.5rem 0; color: #6B7280; white-space: nowrap;">{{ s.check_in_at|date:"d M Y" }}</td>
+                            <td style="padding: 0.5rem 0;">{{ s.session.title }}</td>
+                            <td style="padding: 0.5rem 0; color: #6B7280;">{{ s.session.programme.name }}</td>
+                            <td style="padding: 0.5rem 0; color: #6B7280;">{{ s.get_status_display }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            {% else %}
+                <p style="font-size: 0.875rem; color: #6B7280;">No stamps recorded.</p>
+            {% endif %}
+        </section>
+
+        <!-- Footer -->
+        <footer style="margin-top: 3rem; padding-top: 1.5rem; border-top: 1px solid #E5E7EB; text-align: center;">
+            <p style="font-size: 0.75rem; color: #6B7280; margin-bottom: 0.5rem;">
+                Generated by Sua+ on {{ printed_at|date:"d M Y, H:i" }}.
+                The current level is derived from the strongest valid evidence for each competency.
+            </p>
+            <p style="font-size: 0.7rem; color: #6B7280; text-transform: uppercase; letter-spacing: 0.05em;">
+                &copy; 2026 KNUST E-Learning Centre. All rights reserved.
+            </p>
+        </footer>
+    </div>
+
+</body>
+</html>

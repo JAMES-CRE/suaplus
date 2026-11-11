@@ -1,0 +1,123 @@
+﻿{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Audit Log - Sua+ Hub{% endblock %}
+
+{% block content %}
+<div class="max-w-6xl mx-auto px-4 sm:px-6 py-8 md:py-12 pb-32">
+
+    <a href="/hub/" class="text-sm text-kec-grey hover:text-kec-red mb-6 inline-block">
+         Back to Hub
+    </a>
+
+    <div class="mb-8 md:mb-10">
+        <h1 class="font-syncopate text-3xl md:text-4xl uppercase tracking-wider md:tracking-widest text-kec-charcoal mb-2">
+            Audit Log
+        </h1>
+        <p class="text-sm text-kec-grey">
+            Read-only record of every write and data export.
+        </p>
+    </div>
+
+    <hr class="border-gray-200 mb-8">
+
+    {% if events %}
+        <p class="text-xs sm:text-sm text-kec-grey mb-4 sm:mb-6">
+            Showing {{ events|length }} most recent event{{ events|length|pluralize }}
+        </p>
+
+        <!-- Desktop table (hidden on mobile) -->
+        <div class="hidden md:block border border-gray-200 rounded-kec overflow-hidden">
+            <table class="w-full text-left">
+                <thead>
+                    <tr class="bg-gray-50 border-b border-gray-200">
+                        <th class="px-4 py-3 text-xs font-semibold text-kec-grey uppercase tracking-wider">When</th>
+                        <th class="px-4 py-3 text-xs font-semibold text-kec-grey uppercase tracking-wider">Actor</th>
+                        <th class="px-4 py-3 text-xs font-semibold text-kec-grey uppercase tracking-wider">Action</th>
+                        <th class="px-4 py-3 text-xs font-semibold text-kec-grey uppercase tracking-wider">Entity</th>
+                        <th class="px-4 py-3 text-xs font-semibold text-kec-grey uppercase tracking-wider">Change</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for e in events %}
+                    <tr class="border-b border-gray-100 last:border-0 hover:bg-gray-50 transition-colors">
+                        <td class="px-4 py-3 text-sm text-kec-grey whitespace-nowrap">
+                            {{ e.at|date:"d M Y, H:i" }}
+                        </td>
+                        <td class="px-4 py-3 text-sm text-kec-charcoal">
+                            {{ e.actor.get_full_name|default:e.actor.username|default:"-" }}
+                        </td>
+                        <td class="px-4 py-3 text-sm text-kec-charcoal font-mono">
+                            {{ e.action }}
+                        </td>
+                        <td class="px-4 py-3 text-sm text-kec-grey">
+                            {{ e.entity }}{% if e.entity_id %} #{{ e.entity_id }}{% endif %}
+                        </td>
+                        <td class="px-4 py-3 text-xs text-kec-grey">
+                            {% if e.before and e.after %}
+                                <span class="text-kec-charcoal">Changed</span>
+                            {% elif e.after %}
+                                <span class="text-kec-charcoal">Created</span>
+                            {% elif e.before %}
+                                <span class="text-kec-charcoal">Deleted</span>
+                            {% else %}
+                                -
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Mobile cards (hidden on desktop) -->
+        <div class="md:hidden space-y-3">
+            {% for e in events %}
+            <div class="border border-gray-200 rounded-kec p-4">
+                <p class="text-[10px] sm:text-xs text-kec-grey mb-2">
+                    {{ e.at|date:"d M Y, H:i" }}
+                     {{ e.actor.get_full_name|default:e.actor.username|default:"-" }}
+                </p>
+                <p class="text-sm text-kec-charcoal font-mono mb-1 break-all">
+                    {{ e.action }}
+                </p>
+                <p class="text-sm text-kec-grey mb-2">
+                    {{ e.entity }}{% if e.entity_id %} #{{ e.entity_id }}{% endif %}
+                </p>
+                
+                <!-- Show what changed, rather than raw JSON -->
+                {% if e.before or e.after %}
+                    <div class="mt-2 pt-2 border-t border-gray-100 space-y-1">
+                        {% if e.before %}
+                        <p class="text-[10px] sm:text-xs text-kec-grey leading-relaxed">
+                            <strong class="text-kec-charcoal">Before:</strong> 
+                            {% for key, value in e.before.items %}
+                                {{ key }}: {{ value }}{% if not forloop.last %}, {% endif %}
+                            {% endfor %}
+                        </p>
+                        {% endif %}
+                        {% if e.after %}
+                        <p class="text-[10px] sm:text-xs text-kec-grey leading-relaxed">
+                            <strong class="text-kec-charcoal">After:</strong> 
+                            {% for key, value in e.after.items %}
+                                {{ key }}: {{ value }}{% if not forloop.last %}, {% endif %}
+                            {% endfor %}
+                        </p>
+                        {% endif %}
+                    </div>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+
+    {% else %}
+        <div class="text-center py-20">
+            <div class="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center text-kec-grey mx-auto mb-4">
+                <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path></svg>
+            </div>
+            <p class="text-base text-kec-grey">No audit events yet.</p>
+        </div>
+    {% endif %}
+
+</div>
+{% endblock %}

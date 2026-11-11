@@ -1,0 +1,107 @@
+﻿{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Academic Calendar   Sua+ Hub{% endblock %}
+
+{% block content %}
+<div class="max-w-5xl mx-auto px-4 sm:px-6 py-8 md:py-12 pb-32">
+
+    <div class="mb-8 md:mb-10 flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+        <div>
+            <h1 class="font-syncopate text-3xl md:text-4xl uppercase tracking-wider md:tracking-widest text-kec-charcoal mb-2">Academic Calendar</h1>
+            <p class="text-sm text-kec-grey">{{ periods|length }} period{{ periods|length|pluralize }} defined for KPI tracking.</p>
+        </div>
+        <a href="{% url 'calendar_create' %}" class="btn-primary w-full sm:w-auto px-6 py-3 text-center">+ Add Period</a>
+    </div>
+
+    <hr class="border-gray-200 mb-6 md:mb-8">
+
+    {% if messages %}
+        {% for message in messages %}
+        <div class="mb-6 p-3 bg-red-50 text-kec-red text-sm rounded-kec" role="alert">{{ message }}</div>
+        {% endfor %}
+    {% endif %}
+
+    {% if periods %}
+        <!-- Desktop table (hidden on mobile) -->
+        <div class="hidden md:block border border-gray-200 rounded-kec overflow-hidden">
+            <table class="w-full text-left">
+                <thead>
+                    <tr class="bg-gray-50 border-b border-gray-200">
+                        <th class="px-4 py-3 text-xs font-semibold text-kec-grey uppercase tracking-wider">Period</th>
+                        <th class="px-4 py-3 text-xs font-semibold text-kec-grey uppercase tracking-wider">Dates</th>
+                        <th class="px-4 py-3 text-xs font-semibold text-kec-grey uppercase tracking-wider">Status</th>
+                        <th class="px-4 py-3 text-xs font-semibold text-kec-grey uppercase tracking-wider text-right">Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for p in periods %}
+                    <tr class="border-b border-gray-100 last:border-0 hover:bg-gray-50 transition-colors">
+                        <td class="px-4 py-4 text-sm text-kec-charcoal font-medium">
+                            {{ p.year_start }}/{{ p.year_end }}  {{ p.get_semester_display }}
+                        </td>
+                        <td class="px-4 py-4 text-sm text-kec-grey">
+                            {{ p.start_date|date:"d M Y" }}  {{ p.end_date|date:"d M Y" }}
+                        </td>
+                        <td class="px-4 py-4 text-sm">
+                            {% now "Y-m-d" as today %}
+                            {% if p.start_date|date:"Y-m-d" <= today and p.end_date|date:"Y-m-d" >= today %}
+                                <span class="text-xs font-semibold text-green-700 bg-green-50 px-2 py-1 rounded-full">Current</span>
+                            {% elif p.end_date|date:"Y-m-d" < today %}
+                                <span class="text-xs font-semibold text-kec-grey bg-gray-100 px-2 py-1 rounded-full">Past</span>
+                            {% else %}
+                                <span class="text-xs font-semibold text-kec-charcoal bg-gray-100 px-2 py-1 rounded-full">Upcoming</span>
+                            {% endif %}
+                        </td>
+                        <td class="px-4 py-4 text-right">
+                            <a href="{% url 'calendar_edit' p.id %}" class="text-sm font-semibold text-kec-charcoal hover:text-kec-red">
+                                Edit 
+                            </a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Mobile cards (hidden on desktop) -->
+        <div class="md:hidden space-y-3">
+            {% for p in periods %}
+            <div class="border border-gray-200 rounded-kec p-5">
+                <div class="flex justify-between items-start mb-2">
+                    <p class="text-sm text-kec-charcoal font-bold">
+                        {{ p.year_start }}/{{ p.year_end }}  {{ p.get_semester_display }}
+                    </p>
+                    {% now "Y-m-d" as today %}
+                    {% if p.start_date|date:"Y-m-d" <= today and p.end_date|date:"Y-m-d" >= today %}
+                        <span class="text-[10px] font-semibold text-green-700 bg-green-50 px-2 py-0.5 rounded-full">Current</span>
+                    {% elif p.end_date|date:"Y-m-d" < today %}
+                        <span class="text-[10px] font-semibold text-kec-grey bg-gray-100 px-2 py-0.5 rounded-full">Past</span>
+                    {% else %}
+                        <span class="text-[10px] font-semibold text-kec-charcoal bg-gray-100 px-2 py-0.5 rounded-full">Upcoming</span>
+                    {% endif %}
+                </div>
+                <p class="text-xs text-kec-grey mb-4">
+                    {{ p.start_date|date:"d M Y" }}  {{ p.end_date|date:"d M Y" }}
+                </p>
+                <a href="{% url 'calendar_edit' p.id %}" class="text-sm font-semibold text-kec-charcoal hover:text-kec-red">
+                    Edit 
+                </a>
+            </div>
+            {% endfor %}
+        </div>
+
+    {% else %}
+        <div class="text-center py-16">
+            <div class="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center text-kec-grey mx-auto mb-4">
+                <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+            </div>
+            <h3 class="text-lg font-semibold text-kec-charcoal mb-2">No academic periods yet.</h3>
+            <p class="text-sm text-kec-grey mb-6 max-w-sm mx-auto">Create your first period to begin tracking KPIs by semester.</p>
+            <a href="{% url 'calendar_create' %}" class="btn-primary w-full sm:w-auto px-8 py-3 inline-block">Add your first period</a>
+        </div>
+    {% endif %}
+
+</div>
+{% endblock %}
+

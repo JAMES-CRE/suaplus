@@ -1,0 +1,124 @@
+﻿{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Edit {{ competency.code }} - Competency Library{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto px-6 py-12 pb-32">
+
+    <a href="{% url 'library_dashboard' %}?framework={{ competency.framework_id }}&domain={{ competency.domain_id }}" class="text-sm text-kec-grey hover:text-kec-red mb-6 inline-block">
+         Back to Library
+    </a>
+
+    <div class="mb-10">
+        <h1 class="font-syncopate text-3xl md:text-4xl uppercase tracking-widest text-kec-charcoal mb-2">
+            Edit Competency
+        </h1>
+        <p class="text-sm text-kec-grey">
+            {{ competency.code }} - {{ competency.title }}
+        </p>
+    </div>
+
+    <hr class="border-gray-200 mb-10">
+
+    {% if messages %}
+        {% for message in messages %}
+            <div class="mb-6 p-3 bg-red-50 text-kec-red text-sm rounded-kec">{{ message }}</div>
+        {% endfor %}
+    {% endif %}
+
+    <!-- IDENTITY (read-only) -->
+    <p class="text-xs font-bold text-kec-red uppercase tracking-widest mb-4">Identity</p>
+
+    <div class="space-y-3 mb-10 text-sm">
+        <p><strong class="text-kec-charcoal">Code:</strong> <span class="font-mono text-kec-grey">{{ competency.code }}</span></p>
+        <p><strong class="text-kec-charcoal">Framework:</strong> <span class="text-kec-grey">{{ competency.framework.name }}</span></p>
+        <p><strong class="text-kec-charcoal">Domain:</strong> <span class="text-kec-grey">{{ competency.domain.name }}</span></p>
+    </div>
+
+    <hr class="border-gray-200 mb-10">
+
+    <!-- EDITABLE FIELDS -->
+    <form method="post">
+        {% csrf_token %}
+
+        <p class="text-xs font-bold text-kec-red uppercase tracking-widest mb-6">Details</p>
+
+        <div class="space-y-6 mb-10">
+
+            <div>
+                <label for="title" class="block text-xs font-semibold text-kec-grey uppercase tracking-wider mb-2">Title</label>
+                <input
+                    type="text"
+                    name="title"
+                    id="title"
+                    value="{{ competency.title }}"
+                    required
+                    class="form-input">
+            </div>
+
+            <div>
+                <label for="description" class="block text-xs font-semibold text-kec-grey uppercase tracking-wider mb-2">Description</label>
+                <textarea
+                    name="description"
+                    id="description"
+                    rows="4"
+                    class="form-input">{{ competency.description|default:'' }}</textarea>
+            </div>
+
+            <div>
+                <label for="proficient_descriptor" class="block text-xs font-semibold text-kec-grey uppercase tracking-wider mb-2">
+                    Proficient Descriptor (Level 3)
+                </label>
+                <textarea
+                    name="proficient_descriptor"
+                    id="proficient_descriptor"
+                    rows="4"
+                    class="form-input">{{ competency.proficient_descriptor|default:'' }}</textarea>
+                <p class="text-xs text-kec-grey mt-1">
+                    This is the "I can" statement shown in the self-assessment and on passports.
+                </p>
+            </div>
+
+        </div>
+
+        <hr class="border-gray-200 mb-10">
+
+        <!-- IMPACT PREVIEW -->
+        <p class="text-xs font-bold text-kec-red uppercase tracking-widest mb-6">Impact Preview</p>
+
+        <div class="mb-10 text-sm">
+            {% if programmes_using %}
+                <p class="text-kec-charcoal mb-3">
+                    Used in {{ programmes_using|length }} programme{{ programmes_using|length|pluralize }}:
+                </p>
+                <ul class="space-y-2">
+                    {% for pc in programmes_using %}
+                    <li class="text-kec-grey">
+                         <strong class="text-kec-charcoal">{{ pc.programme.name }}</strong>
+                        - Target level: {{ pc.target_level }}
+                    </li>
+                    {% endfor %}
+                </ul>
+            {% else %}
+                <p class="text-kec-grey">
+                    This competency is not used by any programme yet.
+                </p>
+            {% endif %}
+        </div>
+
+        <hr class="border-gray-200 mb-10">
+
+        <div class="flex flex-col md:flex-row gap-4 justify-end">
+            <a href="{% url 'library_dashboard' %}?framework={{ competency.framework_id }}&domain={{ competency.domain_id }}" class="btn-secondary text-center">
+                Cancel
+            </a>
+            <button type="submit" class="btn-primary">
+                Save Changes
+            </button>
+        </div>
+    </form>
+
+</div>
+{% endblock %}
+

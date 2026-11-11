@@ -1,0 +1,92 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Partner Reports — Sua+ Hub{% endblock %}
+
+{% block content %}
+<div class="max-w-5xl mx-auto px-4 sm:px-6 py-8 md:py-12 pb-32">
+
+    <a href="/hub/" class="text-sm text-kec-grey hover:text-kec-red mb-6 inline-block">
+        ← Back to Hub
+    </a>
+
+    <div class="mb-8 md:mb-10">
+        <h1 class="font-syncopate text-3xl md:text-4xl uppercase tracking-wider md:tracking-widest text-kec-charcoal mb-2">
+            Partner Reports
+        </h1>
+        <p class="text-sm text-kec-grey">
+            {{ count }} organisation{{ count|pluralize }}
+        </p>
+    </div>
+
+    <hr class="border-gray-200 mb-8">
+
+    {% if messages %}
+        {% for message in messages %}
+            <div class="mb-6 p-3 bg-red-50 text-kec-red text-sm rounded-kec">{{ message }}</div>
+        {% endfor %}
+    {% endif %}
+
+    {% if organisations %}
+        <!-- Desktop table (hidden on mobile) -->
+        <div class="hidden md:block border border-gray-200 rounded-kec overflow-hidden">
+            <table class="w-full text-left">
+                <thead>
+                    <tr class="bg-gray-50 border-b border-gray-200">
+                        <th class="px-4 py-3 text-xs font-semibold text-kec-grey uppercase tracking-wider">Organisation</th>
+                        <th class="px-4 py-3 text-xs font-semibold text-kec-grey uppercase tracking-wider">Type</th>
+                        <th class="px-4 py-3 text-xs font-semibold text-kec-grey uppercase tracking-wider">Region</th>
+                        <th class="px-4 py-3 text-xs font-semibold text-kec-grey uppercase tracking-wider">Programmes</th>
+                        <th class="px-4 py-3 text-xs font-semibold text-kec-grey uppercase tracking-wider text-right">Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for o in organisations %}
+                    <tr class="border-b border-gray-100 last:border-0 hover:bg-gray-50 transition-colors">
+                        <td class="px-4 py-4 text-sm text-kec-charcoal font-medium">{{ o.name }}</td>
+                        <td class="px-4 py-4 text-sm text-kec-grey">{{ o.get_type_display }}</td>
+                        <td class="px-4 py-4 text-sm text-kec-grey">{{ o.region|default:"—" }}</td>
+                        <td class="px-4 py-4 text-sm text-kec-grey">{{ o.programme_count }}</td>
+                        <td class="px-4 py-4 text-right">
+                            <a href="{% url 'partner_report' o.id %}" class="text-sm font-semibold text-kec-charcoal hover:text-kec-red">
+                                View →
+                            </a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Mobile cards (hidden on desktop) -->
+        <div class="md:hidden space-y-3">
+            {% for o in organisations %}
+            <div class="border border-gray-200 rounded-kec p-5">
+                <p class="text-base text-kec-charcoal font-bold mb-1">{{ o.name }}</p>
+                <p class="text-sm text-kec-grey mb-1">
+                    {{ o.get_type_display }}
+                    {% if o.region %} · {{ o.region }}{% endif %}
+                </p>
+                <p class="text-xs text-kec-grey mb-4">
+                    {{ o.programme_count }} programme{{ o.programme_count|pluralize }}
+                </p>
+                <a href="{% url 'partner_report' o.id %}" class="text-sm font-semibold text-kec-charcoal hover:text-kec-red">
+                    View report →
+                </a>
+            </div>
+            {% endfor %}
+        </div>
+
+    {% else %}
+        <div class="text-center py-20">
+            <div class="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center text-kec-grey mx-auto mb-4">
+                <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path></svg>
+            </div>
+            <p class="text-base text-kec-grey">
+                No partner organisations linked to programmes yet.
+            </p>
+        </div>
+    {% endif %}
+
+</div>
+{% endblock %}

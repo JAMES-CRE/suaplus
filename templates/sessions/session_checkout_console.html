@@ -1,0 +1,81 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Check-out - {{ session.title }}{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto px-4 sm:px-6 py-8 md:py-12 pb-32">
+
+    <a href="{% url 'session_console' session.id %}" class="text-sm text-kec-grey hover:text-kec-red mb-6 inline-flex items-center gap-1">
+        <span aria-hidden="true">←</span> Back to Console
+    </a>
+
+    <div id="checkout-card" class="bg-white border border-gray-200 rounded-kec p-6 md:p-10 shadow-sm text-center">
+
+        <div class="w-16 h-16 rounded-full bg-kec-red text-white flex items-center justify-center mx-auto mb-6" aria-hidden="true">
+            <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path></svg>
+        </div>
+
+        <h1 class="font-syncopate text-3xl md:text-4xl uppercase tracking-wider text-kec-charcoal mb-2">Check Out</h1>
+        <p class="text-base text-kec-grey mb-8 break-words">{{ session.title }}</p>
+
+        <hr class="border-gray-200 w-24 mx-auto mb-8">
+
+        <!-- QR is made on our own server (no third-party service sees the check-out link). -->
+        <div class="bg-gray-50 border border-gray-100 rounded-kec p-6 inline-block mb-6">
+            <img src="{{ qr_image_data }}"
+                 alt="Check-out QR code. Scan it to open the exit survey."
+                 width="280" height="280"
+                 class="w-56 h-56 md:w-72 md:h-72 mx-auto">
+        </div>
+
+        <ol class="text-sm text-kec-grey mb-8 space-y-1 max-w-sm mx-auto text-left list-decimal list-inside">
+            <li>Open your phone camera</li>
+            <li>Scan the QR code above</li>
+            <li>Complete the short exit survey</li>
+        </ol>
+
+        <div class="bg-white border border-gray-200 rounded-kec p-4 inline-block max-w-full mb-6">
+            <p class="text-xs text-kec-grey uppercase tracking-wider mb-1">Or visit</p>
+            <p id="checkout-url" class="text-xs font-mono text-kec-charcoal break-all">{{ checkout_url }}</p>
+        </div>
+
+        <div class="flex flex-col sm:flex-row gap-3 justify-center">
+            <button type="button" id="copy-link" class="btn-secondary w-full sm:w-auto">Copy link</button>
+            <button type="button" id="fullscreen" class="btn-secondary w-full sm:w-auto">Show full screen</button>
+        </div>
+
+    </div>
+
+</div>
+
+<style>
+    /* Full screen for projectors */
+    #checkout-card:fullscreen { display: flex; flex-direction: column; align-items: center; justify-content: center; background: #fff; }
+    #checkout-card:fullscreen img { width: min(60vh, 70vw); height: min(60vh, 70vw); max-width: none; }
+</style>
+
+<script>
+    (function () {
+        var card = document.getElementById('checkout-card');
+        var copyBtn = document.getElementById('copy-link');
+        var fsBtn = document.getElementById('fullscreen');
+
+        copyBtn.addEventListener('click', function () {
+            var url = document.getElementById('checkout-url').textContent.trim();
+            if (navigator.clipboard && window.isSecureContext) {
+                navigator.clipboard.writeText(url).then(function () {
+                    copyBtn.textContent = 'Copied';
+                    setTimeout(function () { copyBtn.textContent = 'Copy link'; }, 1500);
+                });
+            }
+        });
+
+        if (card.requestFullscreen) {
+            fsBtn.addEventListener('click', function () { card.requestFullscreen(); });
+        } else {
+            fsBtn.hidden = true;
+        }
+    })();
+</script>
+{% endblock %}

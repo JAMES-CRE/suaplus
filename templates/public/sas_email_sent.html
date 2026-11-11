@@ -1,0 +1,27 @@
+﻿{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Check your email - Sua+{% endblock %}
+
+{% block content %}
+<div class="min-h-[80vh] flex items-center justify-center px-6 py-12">
+    <div class="max-w-md w-full text-center">
+
+        <h1 class="font-syncopate text-4xl md:text-5xl uppercase tracking-widest text-kec-charcoal mb-6">
+            Check your email
+        </h1>
+
+        <hr class="border-gray-200 w-24 mx-auto mb-8">
+
+        <p class="text-base text-kec-grey leading-relaxed mb-10">
+            We've sent a secure link to your inbox. Click it to begin your self-assessment.
+        </p>
+
+        <a href="/" class="text-xs text-kec-grey hover:text-kec-red underline">
+            Back to Home
+        </a>
+
+    </div>
+</div>
+{% endblock %}
+

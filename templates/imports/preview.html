@@ -1,0 +1,120 @@
+﻿{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Preview Import - Sua+ Hub{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto px-6 py-12 pb-32">
+
+    <a href="{% url 'import_preview' %}" class="text-sm text-kec-grey hover:text-kec-red mb-6 inline-block">
+         Back to Map Columns
+    </a>
+
+    <div class="mb-10">
+        <h1 class="font-syncopate text-4xl md:text-5xl uppercase tracking-widest text-kec-charcoal mb-2">
+            Preview Import
+        </h1>
+        <p class="text-sm text-kec-grey">
+            {{ session.title }} - {{ session.programme.name }}
+        </p>
+        <p class="text-xs text-kec-grey mt-1">
+            Email column: <span class="font-mono">{{ email_col }}</span>
+             Name column: <span class="font-mono">{{ name_col }}</span>
+        </p>
+    </div>
+
+    <hr class="border-gray-200 mb-10">
+
+    {% if messages %}
+        {% for message in messages %}
+            <div class="mb-6 p-3 bg-red-50 text-kec-red text-sm rounded-kec">{{ message }}</div>
+        {% endfor %}
+    {% endif %}
+
+    <!-- Summary -->
+    <p class="text-sm text-kec-charcoal mb-6">
+        {{ preview_rows|length }} row{{ preview_rows|length|pluralize }}
+         {{ new_count }} will be added
+         {{ matched_count }} matched
+        {% if error_count %} {{ error_count }} error{{ error_count|pluralize }}{% endif %}
+    </p>
+
+    <hr class="border-gray-200 mb-6">
+
+    <!-- Preview table -->
+    {% if preview_rows %}
+    <div class="border border-gray-200 rounded-kec overflow-x-auto mb-10">
+        <table class="w-full text-sm">
+            <thead>
+                <tr class="border-b border-gray-200 bg-gray-50">
+                    <th class="px-4 py-3 text-left text-xs font-semibold text-kec-grey uppercase tracking-wider">Status</th>
+                    <th class="px-4 py-3 text-left text-xs font-semibold text-kec-grey uppercase tracking-wider">Email</th>
+                    <th class="px-4 py-3 text-left text-xs font-semibold text-kec-grey uppercase tracking-wider">Name</th>
+                    <th class="px-4 py-3 text-left text-xs font-semibold text-kec-grey uppercase tracking-wider">Note</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in preview_rows %}
+                <tr class="border-b border-gray-100">
+                    <td class="px-4 py-3 text-sm font-semibold
+                        {% if row.status == 'new' %}text-green-700
+                        {% elif row.status == 'matched' %}text-kec-charcoal
+                        {% else %}text-kec-red{% endif %}">
+                        {{ row.status|title }}
+                    </td>
+                    <td class="px-4 py-3 text-sm text-kec-grey font-mono">
+                        {{ row.email|default:"(empty)" }}
+                    </td>
+                    <td class="px-4 py-3 text-sm text-kec-charcoal">
+                        {{ row.name|default:"-" }}
+                    </td>
+                    <td class="px-4 py-3 text-xs text-kec-grey">
+                        {% if row.status == 'new' %}
+                            Will be created
+                        {% elif row.status == 'matched' %}
+                            Existing person
+                        {% else %}
+                            Missing or invalid email
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="text-center py-20">
+        <p class="text-base text-kec-grey mb-6">No rows to preview.</p>
+        <a href="{% url 'import_upload' %}" class="btn-primary inline-block">Start over</a>
+    </div>
+    {% endif %}
+
+    <hr class="border-gray-200 mb-10">
+
+    <!-- What happens on commit -->
+    <p class="text-xs font-bold text-kec-red uppercase tracking-widest mb-4">What happens on commit</p>
+
+    <ul class="space-y-2 mb-10 text-sm text-kec-grey">
+        <li> New people are created as Person records</li>
+        <li> Each person gets an Attendance record for this session</li>
+        <li> Errored rows are skipped</li>
+        <li> Everything is saved as one import batch</li>
+    </ul>
+
+    <hr class="border-gray-200 mb-10">
+
+    <div class="flex flex-col md:flex-row gap-4 justify-end">
+        <a href="{% url 'import_upload' %}" class="btn-secondary text-center">
+            Cancel
+        </a>
+        <form method="post" action="{% url 'import_commit' %}" class="inline">
+            {% csrf_token %}
+            <button type="submit" class="btn-primary">
+                Commit {{ new_count|add:matched_count }} record{{ new_count|add:matched_count|pluralize }} 
+            </button>
+        </form>
+    </div>
+
+</div>
+{% endblock %}
+
