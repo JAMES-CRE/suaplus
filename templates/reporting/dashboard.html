@@ -4,34 +4,78 @@
 {% block title %}Sua+ Pulse   Dashboard{% endblock %}
 
 {% block content %}
-<div class="max-w-6xl mx-auto px-4 sm:px-6 py-8 md:py-12 pb-32">
+<style>
+    .pulse-page { padding: 2rem 1rem 5rem; }
+    .pulse-filter-grid select, .pulse-filter-grid input { width: 100%; }
+    .pulse-kpi { min-height: 7.25rem; display: flex; flex-direction: column; justify-content: space-between; }
+    .pulse-section { margin-bottom: 2.5rem; }
+    .pulse-chart-card { overflow-x: auto; }
+    .pulse-chart-frame { height: 15rem; min-width: 17rem; }
+    .pulse-chart-frame-wide { height: 16rem; min-width: 17rem; }
+    @media (min-width: 640px) {
+        .pulse-page { padding: 2.5rem 1.5rem 6rem; }
+    }
+    @media (min-width: 768px) {
+        .pulse-page { padding-top: 3rem; padding-bottom: 7rem; }
+        .pulse-section { margin-bottom: 3rem; }
+        .pulse-chart-frame { height: 18rem; }
+        .pulse-chart-frame-wide { height: 19rem; }
+    }
+</style>
+<div class="pulse-page max-w-6xl mx-auto">
 
     <a href="/hub/" class="text-sm text-kec-grey hover:text-kec-red mb-6 inline-block">
          Back to Hub
     </a>
 
-    <div class="mb-6 md:mb-8">
-        <h1 class="font-syncopate text-3xl md:text-5xl uppercase tracking-wider md:tracking-widest text-kec-charcoal mb-2">
-            Sua+ Pulse
-        </h1>
-        <p class="text-sm text-kec-grey">Live KPIs across the university</p>
+    <div class="mb-6 md:mb-8 md:flex md:items-end md:justify-between md:gap-6">
+        <div>
+            <h1 class="font-syncopate text-3xl md:text-5xl uppercase tracking-wider md:tracking-widest text-kec-charcoal mb-2">
+                Sua+ Pulse
+            </h1>
+            <p class="text-sm text-kec-grey">Live KPIs across the university</p>
+        </div>
+        <div class="flex flex-wrap items-center gap-2 mt-4 md:mt-0" aria-label="Export dashboard">
+            <span class="w-full text-xs text-kec-grey sm:w-auto">Export this view</span>
+            <a class="btn-secondary text-xs text-center" href="?period={{ selected_period }}&date_from={{ selected_date_from }}&date_to={{ selected_date_to }}&programme={{ selected_programme }}&unit={{ selected_unit }}&category={{ selected_category }}&affiliation={{ selected_affiliation }}&partner={{ selected_partner }}&export=csv">CSV</a>
+            <a class="btn-secondary text-xs text-center" href="?period={{ selected_period }}&date_from={{ selected_date_from }}&date_to={{ selected_date_to }}&programme={{ selected_programme }}&unit={{ selected_unit }}&category={{ selected_category }}&affiliation={{ selected_affiliation }}&partner={{ selected_partner }}&export=xlsx">XLSX</a>
+            <a class="btn-secondary text-xs text-center" href="?period={{ selected_period }}&date_from={{ selected_date_from }}&date_to={{ selected_date_to }}&programme={{ selected_programme }}&unit={{ selected_unit }}&category={{ selected_category }}&affiliation={{ selected_affiliation }}&partner={{ selected_partner }}&export=pdf">PDF</a>
+        </div>
     </div>
 
     <hr class="border-gray-200 mb-6 md:mb-8">
 
     <!-- Filters -->
-    <form method="get" class="mb-8 md:mb-10">
-        <div class="flex flex-col md:flex-row gap-4">
-            <div class="flex-1">
+    <form method="get" class="mb-8 md:mb-10 rounded-kec border border-gray-200 bg-gray-50 p-4 sm:p-5 md:p-6">
+        <div class="mb-4 flex items-center justify-between gap-4">
+            <div>
+                <h2 class="text-sm font-semibold text-kec-charcoal">Dashboard filters</h2>
+                <p class="mt-1 text-xs text-kec-grey">Refine every KPI and chart on this page.</p>
+            </div>
+            <button type="submit" class="btn-secondary shrink-0">Apply</button>
+        </div>
+        <div class="pulse-filter-grid grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+            <div>
                 <label for="period" class="block text-xs font-semibold text-kec-grey uppercase tracking-wider mb-2">Period</label>
                 <select name="period" id="period" class="form-input">
                     <option value="all" {% if selected_period == 'all' %}selected{% endif %}>All time</option>
                     <option value="30d" {% if selected_period == '30d' %}selected{% endif %}>Last 30 days</option>
                     <option value="90d" {% if selected_period == '90d' %}selected{% endif %}>Last 90 days</option>
                     <option value="year" {% if selected_period == 'year' %}selected{% endif %}>Last year</option>
+                    {% if academic_periods %}<optgroup label="Academic year / semester">{% for academic_period in academic_periods %}<option value="academic-{{ academic_period.id }}" {% if selected_period == "academic-"|add:academic_period.id|stringformat:"s" %}selected{% endif %}>{{ academic_period }}</option>{% endfor %}</optgroup>{% endif %}
+                    {% if calendar_years %}<optgroup label="Calendar year">{% for year in calendar_years %}<option value="calendar-{{ year }}" {% if selected_period == "calendar-"|add:year|stringformat:"s" %}selected{% endif %}>{{ year }}</option>{% endfor %}</optgroup><optgroup label="Calendar quarter">{% for quarter in quarters %}<option value="{{ quarter.value }}" {% if selected_period == quarter.value %}selected{% endif %}>{{ quarter.label }}</option>{% endfor %}</optgroup>{% endif %}
+                    <option value="custom" {% if selected_period == 'custom' %}selected{% endif %}>Custom date range</option>
                 </select>
+                {% if period_error %}<p class="text-xs text-kec-red mt-2" role="alert">{{ period_error }}</p>{% endif %}
             </div>
-            <div class="flex-1">
+            <div id="custom-period-fields" class="{% if selected_period != 'custom' %}hidden{% endif %}">
+                <label class="block text-xs font-semibold text-kec-grey uppercase tracking-wider mb-2">Custom range</label>
+                <div class="flex gap-2">
+                    <input type="date" id="date-from" name="date_from" value="{{ selected_date_from }}" class="form-input min-w-0" aria-label="Start date" {% if selected_period == 'custom' %}required{% endif %}>
+                    <input type="date" id="date-to" name="date_to" value="{{ selected_date_to }}" class="form-input min-w-0" aria-label="End date" {% if selected_period == 'custom' %}required{% endif %}>
+                </div>
+            </div>
+            <div>
                 <label for="programme" class="block text-xs font-semibold text-kec-grey uppercase tracking-wider mb-2">Programme</label>
                 <select name="programme" id="programme" class="form-input">
                     <option value="">All programmes</option>
@@ -40,7 +84,7 @@
                     {% endfor %}
                 </select>
             </div>
-            <div class="flex-1">
+            <div>
                 <label for="unit" class="block text-xs font-semibold text-kec-grey uppercase tracking-wider mb-2">Unit</label>
                 <select name="unit" id="unit" class="form-input">
                     <option value="">All units</option>
@@ -49,8 +93,26 @@
                     {% endfor %}
                 </select>
             </div>
-            <div class="flex items-end">
-                <button type="submit" class="btn-secondary w-full md:w-auto">Apply</button>
+            <div>
+                <label for="category" class="block text-xs font-semibold text-kec-grey uppercase tracking-wider mb-2">Category</label>
+                <select name="category" id="category" class="form-input">
+                    <option value="">All categories</option>
+                    {% for value in categories %}<option value="{{ value }}" {% if selected_category == value %}selected{% endif %}>{{ value }}</option>{% endfor %}
+                </select>
+            </div>
+            <div>
+                <label for="affiliation" class="block text-xs font-semibold text-kec-grey uppercase tracking-wider mb-2">Affiliation</label>
+                <select name="affiliation" id="affiliation" class="form-input">
+                    <option value="">Internal and external</option>
+                    {% for value, label in affiliations %}<option value="{{ value }}" {% if selected_affiliation == value %}selected{% endif %}>{{ label }}</option>{% endfor %}
+                </select>
+            </div>
+            <div>
+                <label for="partner" class="block text-xs font-semibold text-kec-grey uppercase tracking-wider mb-2">Partner</label>
+                <select name="partner" id="partner" class="form-input">
+                    <option value="">All partners</option>
+                    {% for partner in partners %}<option value="{{ partner.id }}" {% if selected_partner == partner.id|stringformat:"s" %}selected{% endif %}>{{ partner.organisation.name }}</option>{% endfor %}
+                </select>
             </div>
         </div>
     </form>
@@ -62,44 +124,44 @@
 
         <!-- Reach -->
         <a href="{% url 'drilldown' 'reach' %}?programme={{ selected_programme }}&unit={{ selected_unit }}"
-           class="block border border-gray-200 rounded-kec p-4 md:p-5 hover:border-kec-red transition-colors">
+           class="pulse-kpi block border border-gray-200 rounded-kec p-4 md:p-5 bg-white hover:border-kec-red transition-colors">
             <p class="text-[10px] sm:text-xs font-semibold text-kec-grey uppercase tracking-wider mb-1 md:mb-2">People reached</p>
             <p class="text-2xl sm:text-3xl md:text-4xl font-bold text-kec-charcoal leading-none">{{ reach }}</p>
         </a>
 
         <!-- Workshops held -->
-        <div class="border border-gray-200 rounded-kec p-4 md:p-5">
+        <div class="pulse-kpi border border-gray-200 rounded-kec p-4 md:p-5 bg-white">
             <p class="text-[10px] sm:text-xs font-semibold text-kec-grey uppercase tracking-wider mb-1 md:mb-2">Workshops held</p>
             <p class="text-2xl sm:text-3xl md:text-4xl font-bold text-kec-charcoal leading-none">{{ workshops_held }}</p>
         </div>
 
         <!-- Active trainers -->
-        <div class="border border-gray-200 rounded-kec p-4 md:p-5">
+        <div class="pulse-kpi border border-gray-200 rounded-kec p-4 md:p-5 bg-white">
             <p class="text-[10px] sm:text-xs font-semibold text-kec-grey uppercase tracking-wider mb-1 md:mb-2">Active trainers</p>
             <p class="text-2xl sm:text-3xl md:text-4xl font-bold text-kec-charcoal leading-none">{{ active_trainers }}</p>
         </div>
 
         <!-- Cascade -->
-        <div class="border border-gray-200 rounded-kec p-4 md:p-5">
+        <div class="pulse-kpi border border-gray-200 rounded-kec p-4 md:p-5 bg-white">
             <p class="text-[10px] sm:text-xs font-semibold text-kec-grey uppercase tracking-wider mb-1 md:mb-2">Cascade multiplier</p>
             <p class="text-2xl sm:text-3xl md:text-4xl font-bold text-kec-charcoal leading-none">
-                {% if cascade.mean_multiplier %}{{ cascade.mean_multiplier }}-{% endif %}
+                {% if cascade.mean_multiplier == '<5' %}&lt;5{% elif cascade.mean_multiplier %}{{ cascade.mean_multiplier }}-{% endif %}
             </p>
         </div>
 
         <!-- Mean CSAT -->
-        <div class="border border-gray-200 rounded-kec p-4 md:p-5">
+        <div class="pulse-kpi border border-gray-200 rounded-kec p-4 md:p-5 bg-white">
             <p class="text-[10px] sm:text-xs font-semibold text-kec-grey uppercase tracking-wider mb-1 md:mb-2">Mean CSAT</p>
             <p class="text-2xl sm:text-3xl md:text-4xl font-bold text-kec-charcoal leading-none">
-                {% if csat.mean %}{{ csat.mean }}{% endif %}
+                {% if csat.mean == '<5' %}&lt;5{% elif csat.mean %}{{ csat.mean }}{% endif %}
             </p>
         </div>
 
         <!-- Baseline -->
-        <div class="border border-gray-200 rounded-kec p-4 md:p-5">
+        <div class="pulse-kpi border border-gray-200 rounded-kec p-4 md:p-5 bg-white">
             <p class="text-[10px] sm:text-xs font-semibold text-kec-grey uppercase tracking-wider mb-1 md:mb-2">Baseline responses</p>
             <p class="text-2xl sm:text-3xl md:text-4xl font-bold text-kec-charcoal leading-none">
-                {% if baseline.percent %}{{ baseline.percent }}%{% endif %}
+                {% if baseline.percent == '<5' %}&lt;5{% elif baseline.percent %}{{ baseline.percent }}%{% endif %}
             </p>
             {% if baseline.total %}
             <p class="text-[9px] sm:text-[10px] text-kec-grey mt-1 md:mt-2">{{ baseline.count }} of {{ baseline.total }} headcount</p>
@@ -111,52 +173,132 @@
     <hr class="border-gray-200 mb-8 md:mb-10">
 
     <!-- AI Coverage by College (horizontal bar) -->
-    <div class="mb-8 md:mb-10">
+    <section class="pulse-section">
         <p class="text-xs font-bold text-kec-red uppercase tracking-widest mb-2">AI Competency coverage by college</p>
         <p class="text-xs text-kec-grey mb-6">Share of headcount with verified level 2 or above on AI-01 to AI-04</p>
         {% if ai_coverage %}
-            <div class="border border-gray-200 rounded-kec p-3 md:p-6 bg-white">
-                <div class="relative w-full" style="height: {{ ai_coverage|length|add:'40' }}px; min-height: 200px;">
+            <div class="pulse-chart-card border border-gray-200 rounded-kec p-3 md:p-6 bg-white">
+                <div class="pulse-chart-frame-wide relative w-full" style="height: {{ ai_coverage|length|add:'40' }}px; min-height: 200px;">
                     <canvas id="coverageChart"></canvas>
                 </div>
             </div>
+            {{ ai_coverage|json_script:"coverage-data" }}
+            {% if counts_suppressed %}
+            <ul class="mt-4 text-xs text-kec-grey space-y-1">
+                {% for row in ai_coverage %}<li>{{ row.unit }}: {% if row.percent == '<5' %}suppressed (&lt;5 people){% else %}{{ row.percent }}%{% endif %}</li>{% endfor %}
+            </ul>
+            {% endif %}
         {% else %}
             <p class="text-sm text-kec-grey">No college coverage data yet.</p>
         {% endif %}
-    </div>
+    </section>
 
     <hr class="border-gray-200 mb-8 md:mb-10">
 
     <!-- Monthly reach (area/line chart) -->
-    <div class="mb-8 md:mb-10">
+    <section class="pulse-section">
         <p class="text-xs font-bold text-kec-red uppercase tracking-widest mb-2">Monthly reach</p>
         <p class="text-xs text-kec-grey mb-6">Completed attendances per month for the selected filters</p>
         {% if monthly_reach %}
-            <div class="border border-gray-200 rounded-kec p-3 md:p-6 bg-white">
-                <div class="relative w-full" style="height: 280px;">
+            <div class="pulse-chart-card border border-gray-200 rounded-kec p-3 md:p-6 bg-white">
+                <div class="pulse-chart-frame relative w-full">
                     <canvas id="monthlyChart"></canvas>
                 </div>
             </div>
+            {{ monthly_reach|json_script:"monthly-reach-data" }}
+            {% if counts_suppressed %}
+            <ul class="mt-4 text-xs text-kec-grey space-y-1">
+                {% for row in monthly_reach %}<li>{{ row.month }}: {{ row.count }}</li>{% endfor %}
+            </ul>
+            {% endif %}
         {% else %}
             <p class="text-sm text-kec-grey">No attendance data for the selected filters.</p>
         {% endif %}
-    </div>
+    </section>
 
     <hr class="border-gray-200 mb-8 md:mb-10">
 
     <!-- Reach by College (original bar chart, kept for reference) -->
-    <div>
+    <section class="pulse-section">
         <p class="text-xs font-bold text-kec-red uppercase tracking-widest mb-4 md:mb-6">Total reach by college</p>
         {% if reach_by_unit %}
-            <div class="border border-gray-200 rounded-kec p-3 md:p-6 bg-white overflow-hidden">
-                <div class="relative w-full" style="height: 250px;">
+            <div class="pulse-chart-card border border-gray-200 rounded-kec p-3 md:p-6 bg-white">
+                <div class="pulse-chart-frame relative w-full">
                     <canvas id="reachChart"></canvas>
                 </div>
             </div>
+            {{ reach_by_unit|json_script:"reach-by-unit-data" }}
+            {% if counts_suppressed %}
+            <ul class="mt-4 text-xs text-kec-grey space-y-1">
+                {% for row in reach_by_unit %}<li>{{ row.unit }}: {{ row.people }}</li>{% endfor %}
+            </ul>
+            {% endif %}
         {% else %}
             <p class="text-sm text-kec-grey">No attendance data for the selected filters.</p>
         {% endif %}
+    </section>
+
+    <hr class="border-gray-200 my-8 md:my-10">
+
+    <div class="grid lg:grid-cols-2 gap-8 md:gap-10 pulse-section">
+        <section class="flex flex-col">
+            <p class="text-xs font-bold text-kec-red uppercase tracking-widest mb-2">Trainer pipeline</p>
+            <p class="text-xs text-kec-grey mb-4">Approved trainer pathway status by tier</p>
+            <div class="pulse-chart-card border border-gray-200 rounded-kec p-3 md:p-5 bg-white"><div class="pulse-chart-frame relative w-full"><canvas id="pipelineChart"></canvas></div></div>
+            {{ pipeline|json_script:"pipeline-data" }}
+        </section>
+        <section class="flex flex-col">
+            <p class="text-xs font-bold text-kec-red uppercase tracking-widest mb-2">Progression by domain</p>
+            <p class="text-xs text-kec-grey mb-4">Mean verified change from first to latest level</p>
+            {% if progression_by_domain %}
+                <div class="pulse-chart-card border border-gray-200 rounded-kec p-3 md:p-5 bg-white"><div class="pulse-chart-frame relative w-full"><canvas id="progressionChart"></canvas></div></div>
+                {{ progression_by_domain|json_script:"progression-data" }}
+            {% else %}<p class="text-sm text-kec-grey">No verified progression data for the selected filters.</p>{% endif %}
+        </section>
+        <section class="flex flex-col">
+            <p class="text-xs font-bold text-kec-red uppercase tracking-widest mb-2">Cascade by trainer</p>
+            <p class="text-xs text-kec-grey mb-4">Direct and second-generation reach multiplier</p>
+            {% if cascade_by_trainer %}
+                <div class="pulse-chart-card border border-gray-200 rounded-kec p-3 md:p-5 bg-white"><div class="pulse-chart-frame relative w-full"><canvas id="cascadeChart"></canvas></div></div>
+                {{ cascade_by_trainer|json_script:"cascade-data" }}
+            {% else %}<p class="text-sm text-kec-grey">No trainer cascade data for the selected filters.</p>{% endif %}
+        </section>
+        <section class="flex flex-col">
+            <p class="text-xs font-bold text-kec-red uppercase tracking-widest mb-2">CSAT trend</p>
+            <p class="text-xs text-kec-grey mb-4">Monthly mean exit-survey score out of five</p>
+            {% if csat_trend %}
+                <div class="pulse-chart-card border border-gray-200 rounded-kec p-3 md:p-5 bg-white"><div class="pulse-chart-frame relative w-full"><canvas id="csatTrendChart"></canvas></div></div>
+                {{ csat_trend|json_script:"csat-trend-data" }}
+            {% else %}<p class="text-sm text-kec-grey">No exit-survey data for the selected filters.</p>{% endif %}
+        </section>
     </div>
+
+    <hr class="border-gray-200 my-8 md:my-10">
+
+    <section class="pulse-section">
+        <p class="text-xs font-bold text-kec-red uppercase tracking-widest mb-2">Coverage heatmap</p>
+        <p class="text-xs text-kec-grey mb-4">Verified level 2 or above by unit and competency domain</p>
+        {% if coverage_heatmap %}
+            <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+                {% for row in coverage_heatmap %}
+                <div class="rounded-kec border p-3 {% if row.percent >= 75 %}bg-green-100 border-green-300{% elif row.percent >= 50 %}bg-yellow-100 border-yellow-300{% elif row.percent >= 25 %}bg-orange-100 border-orange-300{% else %}bg-red-100 border-red-300{% endif %}">
+                    <p class="text-xs font-semibold text-kec-charcoal">{{ row.unit }}</p>
+                    <p class="text-[10px] text-kec-grey mt-1">{{ row.domain }}</p>
+                    <p class="text-2xl font-bold text-kec-charcoal mt-2">{{ row.percent }}%</p>
+                </div>
+                {% endfor %}
+            </div>
+        {% else %}<p class="text-sm text-kec-grey">No internal headcount and verified coverage data for the selected filters.</p>{% endif %}
+    </section>
+
+    <section>
+        <p class="text-xs font-bold text-kec-red uppercase tracking-widest mb-2">External reach</p>
+        <p class="text-xs text-kec-grey mb-4">Participants outside KNUST by organisation region and type</p>
+        {% if external_reach %}
+            <div class="pulse-chart-card border border-gray-200 rounded-kec p-3 md:p-5 bg-white"><div class="pulse-chart-frame-wide relative w-full"><canvas id="externalReachChart"></canvas></div></div>
+            {{ external_reach|json_script:"external-reach-data" }}
+        {% else %}<p class="text-sm text-kec-grey">No external participant data for the selected filters.</p>{% endif %}
+    </section>
 
 </div>
 {% endblock %}
@@ -164,13 +306,23 @@
 {% block extra_js %}
 <script src="{% static 'js/chart.min.js' %}"></script>
 <script>
+    const periodSelector = document.getElementById('period');
+    const customPeriodFields = document.getElementById('custom-period-fields');
+    if (periodSelector && customPeriodFields) {
+        periodSelector.addEventListener('change', function() {
+            customPeriodFields.classList.toggle('hidden', periodSelector.value !== 'custom');
+            customPeriodFields.querySelectorAll('input[type="date"]').forEach(function(input) {
+                input.required = periodSelector.value === 'custom';
+            });
+        });
+    }
     // ============================================================
     // AI Coverage by College   horizontal bar chart
     // ============================================================
     {% if ai_coverage %}
-    var coverageData = {{ ai_coverage|safe }};
+    var coverageData = JSON.parse(document.getElementById('coverage-data').textContent);
     var coverageLabels = coverageData.map(function(row) { return row.unit; });
-    var coverageValues = coverageData.map(function(row) { return row.percent; });
+    var coverageValues = coverageData.map(function(row) { return row.chart_value; });
 
     new Chart(document.getElementById('coverageChart'), {
         type: 'bar',
@@ -220,9 +372,9 @@
     // Monthly reach   line chart with fill
     // ============================================================
     {% if monthly_reach %}
-    var monthlyData = {{ monthly_reach|safe }};
+    var monthlyData = JSON.parse(document.getElementById('monthly-reach-data').textContent);
     var monthlyLabels = monthlyData.map(function(row) { return row.month; });
-    var monthlyValues = monthlyData.map(function(row) { return row.count; });
+    var monthlyValues = monthlyData.map(function(row) { return row.chart_value; });
 
     new Chart(document.getElementById('monthlyChart'), {
         type: 'line',
@@ -273,9 +425,9 @@
     // Reach by College   the original bar chart
     // ============================================================
     {% if reach_by_unit %}
-    var reachData = {{ reach_by_unit|safe }};
+    var reachData = JSON.parse(document.getElementById('reach-by-unit-data').textContent);
     var reachLabels = reachData.map(function(row) { return row.unit; });
-    var reachValues = reachData.map(function(row) { return row.people; });
+    var reachValues = reachData.map(function(row) { return row.chart_value; });
 
     new Chart(document.getElementById('reachChart'), {
         type: 'bar',
@@ -308,6 +460,52 @@
                 }
             }
         }
+    });
+    {% endif %}
+
+    var pipelineData = JSON.parse(document.getElementById('pipeline-data').textContent);
+    new Chart(document.getElementById('pipelineChart'), {
+        type: 'bar',
+        data: { labels: Object.keys(pipelineData), datasets: [{ data: Object.values(pipelineData), backgroundColor: '#EAB308', borderRadius: 5 }] },
+        options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { beginAtZero: true, ticks: { precision: 0 } }, y: { grid: { display: false } } } }
+    });
+
+    {% if progression_by_domain %}
+    var progressionData = JSON.parse(document.getElementById('progression-data').textContent);
+    new Chart(document.getElementById('progressionChart'), {
+        type: 'bar',
+        data: { labels: progressionData.map(function(row) { return row.domain; }), datasets: [{ label: 'Mean level change', data: progressionData.map(function(row) { return row.mean_delta; }), backgroundColor: '#002147', borderRadius: 5 }] },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } }, x: { grid: { display: false } } } }
+    });
+    {% endif %}
+
+    {% if cascade_by_trainer %}
+    var cascadeData = JSON.parse(document.getElementById('cascade-data').textContent);
+    new Chart(document.getElementById('cascadeChart'), {
+        type: 'bar',
+        data: { labels: cascadeData.map(function(row) { return row.trainer; }), datasets: [{ label: 'Cascade multiplier', data: cascadeData.map(function(row) { return row.multiplier; }), backgroundColor: '#B91C1C', borderRadius: 5 }] },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true }, x: { grid: { display: false } } } }
+    });
+    {% endif %}
+
+    {% if csat_trend %}
+    var csatTrendData = JSON.parse(document.getElementById('csat-trend-data').textContent);
+    new Chart(document.getElementById('csatTrendChart'), {
+        type: 'line',
+        data: { labels: csatTrendData.map(function(row) { return row.month; }), datasets: [{ label: 'Mean CSAT', data: csatTrendData.map(function(row) { return row.mean; }), borderColor: '#B91C1C', backgroundColor: 'rgba(185, 28, 28, 0.15)', fill: true, tension: 0.35, pointBackgroundColor: '#B91C1C' }] },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { min: 0, max: 5, ticks: { stepSize: 1 } }, x: { grid: { display: false } } } }
+    });
+    {% endif %}
+
+    {% if external_reach %}
+    var externalReachData = JSON.parse(document.getElementById('external-reach-data').textContent);
+    var externalRegions = Array.from(new Set(externalReachData.map(function(row) { return row.region; })));
+    var organisationTypes = Array.from(new Set(externalReachData.map(function(row) { return row.organisation_type; })));
+    var externalColours = ['#002147', '#B91C1C', '#EAB308', '#15803D', '#7C3AED'];
+    new Chart(document.getElementById('externalReachChart'), {
+        type: 'bar',
+        data: { labels: externalRegions, datasets: organisationTypes.map(function(type, index) { return { label: type, data: externalRegions.map(function(region) { var row = externalReachData.find(function(item) { return item.region === region && item.organisation_type === type; }); return row ? row.people : 0; }), backgroundColor: externalColours[index % externalColours.length] }; }) },
+        options: { responsive: true, maintainAspectRatio: false, scales: { x: { stacked: true, grid: { display: false } }, y: { stacked: true, beginAtZero: true, ticks: { precision: 0 } } } }
     });
     {% endif %}
 </script>

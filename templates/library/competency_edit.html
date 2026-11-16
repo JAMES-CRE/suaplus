@@ -4,7 +4,7 @@
 {% block title %}Edit {{ competency.code }} - Competency Library{% endblock %}
 
 {% block content %}
-<div class="max-w-2xl mx-auto px-6 py-12 pb-32">
+<div class="max-w-2xl mx-auto px-4 sm:px-6 py-8 md:py-12 pb-20 md:pb-32">
 
     <a href="{% url 'library_dashboard' %}?framework={{ competency.framework_id }}&domain={{ competency.domain_id }}" class="text-sm text-kec-grey hover:text-kec-red mb-6 inline-block">
          Back to Library
@@ -12,7 +12,7 @@
 
     <div class="mb-10">
         <h1 class="font-syncopate text-3xl md:text-4xl uppercase tracking-widest text-kec-charcoal mb-2">
-            Edit Competency
+            Draft Competency Change
         </h1>
         <p class="text-sm text-kec-grey">
             {{ competency.code }} - {{ competency.title }}
@@ -80,6 +80,32 @@
                 </p>
             </div>
 
+            <div>
+                <label for="change_reason" class="block text-xs font-semibold text-kec-grey uppercase tracking-wider mb-2">
+                    Reason for change
+                </label>
+                <textarea name="change_reason" id="change_reason" rows="3" required class="form-input" placeholder="Explain why this change is needed."></textarea>
+            </div>
+
+            <div>
+                <label for="proposed_status" class="block text-xs font-semibold text-kec-grey uppercase tracking-wider mb-2">Competency status</label>
+                <select name="proposed_status" id="proposed_status" class="form-input">
+                    <option value="active" {% if competency.status != "retired" %}selected{% endif %}>Active</option>
+                    <option value="retired" {% if competency.status == "retired" %}selected{% endif %}>Retired</option>
+                </select>
+            </div>
+
+            <div>
+                <label for="proposed_replaced_by" class="block text-xs font-semibold text-kec-grey uppercase tracking-wider mb-2">Replacement competency</label>
+                <select name="proposed_replaced_by" id="proposed_replaced_by" class="form-input">
+                    <option value="">Select if retiring this competency</option>
+                    {% for replacement in replacements %}
+                    <option value="{{ replacement.id }}" {% if competency.replaced_by_id == replacement.id %}selected{% endif %}>{{ replacement.code }} · {{ replacement.title }}</option>
+                    {% endfor %}
+                </select>
+                <p class="text-xs text-kec-grey mt-1">Required for retirement; the replacement must be active and in the same framework.</p>
+            </div>
+
         </div>
 
         <hr class="border-gray-200 mb-10">
@@ -90,7 +116,7 @@
         <div class="mb-10 text-sm">
             {% if programmes_using %}
                 <p class="text-kec-charcoal mb-3">
-                    Used in {{ programmes_using|length }} programme{{ programmes_using|length|pluralize }}:
+                Used in {{ programmes_using|length }} programme{{ programmes_using|length|pluralize }}:
                 </p>
                 <ul class="space-y-2">
                     {% for pc in programmes_using %}
@@ -105,6 +131,7 @@
                     This competency is not used by any programme yet.
                 </p>
             {% endif %}
+            <p class="text-kec-grey mt-3">Also affects {{ sessions_using|length }} session{{ sessions_using|length|pluralize }} and {{ evidence_count }} evidence record{{ evidence_count|pluralize }}.</p>
         </div>
 
         <hr class="border-gray-200 mb-10">
@@ -114,7 +141,7 @@
                 Cancel
             </a>
             <button type="submit" class="btn-primary">
-                Save Changes
+                Save Draft and Preview Impact
             </button>
         </div>
     </form>

@@ -2,26 +2,32 @@
 
 import hashlib
 import hmac
-import secrets
 import time
 
-from django.conf import settings
 from django.db.models import Q
 from apps.sessions.qrhelper import qr_data_uri
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.core.exceptions import PermissionDenied
 from django.db import transaction
 from django.db.models import Count
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.utils import timezone
 
 from apps.accounts.permissions import get_user_scopes, is_super_admin
 from apps.core.rate_limit import rate_limit
 from apps.library.models import Level, SurveyTemplate
-from apps.notifications.services import send_notification
+from apps.library.versioning import framework_version_label
+from apps.notifications.services import (
+    send_passport_link_to_participant,
+    send_passport_link_to_guardian,
+    send_passport_link_to_partner_coordinators,
+)
 from apps.passport.models import Evidence
-from apps.registry.models import Consent, Organisation, Person, PassportToken
+from apps.registry.models import Consent, Organisation, Person
+from apps.passport.linking import issue_passport_link
 from apps.sessions.forms import CheckinForm, CheckoutForm, SessionForm
 from apps.sessions.models import (
     Attendance,
@@ -72,14 +78,14 @@ def _create_attendance_evidence(person, session):
     ).first()
     if not attendance_level:
         return
-    for sc in session.competencies.select_related("competency"):
+    for sc in session.competencies.select_related("competency__framework"):
         Evidence.objects.create(
             person=person,
             competency=sc.competency,
             level=attendance_level,
             type="attendance",
             source_type="attendance",
-            framework_version="v1",
+            framework_version=framework_version_label(sc.competency.framework),
         )
 
 
@@ -98,7 +104,7 @@ def _rotating_token(session, offset=0):
 # ---------------------------------------------------------------------------
 
 
-@rate_limit("checkin", max_requests=20, window_seconds=3600)
+@rate_limit("checkin", max_requests=1200, window_seconds=120)
 def checkin(request, code):
     """Display and process the check-in form for a session."""
     session = get_object_or_404(
@@ -126,7 +132,8 @@ def checkin(request, code):
             data = form.cleaned_data
 
             org = None
-            if data["affiliation"] == "external" and data["consent"]:
+            has_data_consent = data["consent"] or data.get("guardian_consent", False)
+            if data["affiliation"] == "external" and has_data_consent:
                 org_name = data.get("organisation_name", "").strip()
                 if org_name:
                     org, _ = Organisation.objects.get_or_create(
@@ -152,10 +159,15 @@ def checkin(request, code):
                     person.organisation = org
                     person.save(update_fields=["organisation"])
 
+                consent_given_by = (
+                    data.get("guardian_name", "").strip()
+                    if age_band == "under_18"
+                    else person.full_name
+                )
                 Consent.objects.create(
                     person=person,
                     type="data_processing",
-                    given_by=person.full_name,
+                    given_by=consent_given_by,
                     notice_version="1.0",
                 )
 
@@ -164,6 +176,7 @@ def checkin(request, code):
                         person=person,
                         type="guardian",
                         given_by=data.get("guardian_name", "").strip(),
+                        contact_details=data.get("guardian_contact", "").strip(),
                         notice_version="1.0",
                     )
 
@@ -248,25 +261,36 @@ def checkout(request, code, person_id):
                         ],
                     )
 
-                raw_token = secrets.token_urlsafe(32)
-                PassportToken.objects.create(
-                    person=attendance.person,
-                    token_hash=hashlib.sha256(raw_token.encode()).hexdigest(),
-                )
-                passport_url = f"{settings.SITE_URL}/p/{raw_token}/"
-                send_notification(
-                    person=attendance.person,
-                    template_key="passport_link",
-                    context={
-                        "name": attendance.person.full_name,
-                        "session_title": session.title,
-                        "passport_url": passport_url,
-                    },
-                )
+                passport_url = issue_passport_link(attendance.person)
+                if attendance.person.age_band == "under_18":
+                    guardian_link_sent = send_passport_link_to_guardian(
+                        person=attendance.person,
+                        session_title=session.title,
+                        passport_url=passport_url,
+                    )
+                    if guardian_link_sent:
+                        delivery_recipient = "guardian"
+                    else:
+                        coordinator_emails_sent = send_passport_link_to_partner_coordinators(
+                            person=attendance.person,
+                            session_title=session.title,
+                            passport_url=passport_url,
+                        )
+                        delivery_recipient = "coordinator" if coordinator_emails_sent else "unavailable"
+                else:
+                    send_passport_link_to_participant(
+                        person=attendance.person,
+                        session_title=session.title,
+                        passport_url=passport_url,
+                    )
+                    delivery_recipient = "participant"
             return render(
                 request,
                 "public/checkout_done.html",
-                {"session": session},
+                {
+                    "session": session,
+                    "delivery_recipient": delivery_recipient,
+                },
             )
     else:
         form = CheckoutForm()
@@ -283,24 +307,79 @@ def checkout(request, code, person_id):
 # ---------------------------------------------------------------------------
 
 
+def _sessions_visible_to(user):
+    """Return sessions covered by the user's operational role assignments."""
+    if is_super_admin(user):
+        return Session.objects.all()
+
+    scopes = get_user_scopes(user)
+    allowed = Q(pk__in=[])
+    operational_roles = {"facilitator", "associate_trainer", "programme_owner", "focal_person"}
+
+    for scope in scopes:
+        if scope.role not in operational_roles:
+            continue
+        if scope.scope_type == "all":
+            return Session.objects.all()
+        if scope.scope_id is None:
+            continue
+        if (
+            scope.role in ("programme_owner", "facilitator", "associate_trainer")
+            and scope.scope_type == "programme"
+        ):
+            allowed |= Q(programme_id=scope.scope_id)
+        elif scope.role == "focal_person" and scope.scope_type == "unit":
+            allowed |= Q(host_unit_id=scope.scope_id)
+        elif (
+            scope.role in ("facilitator", "associate_trainer")
+            and scope.scope_type == "session"
+        ):
+            allowed |= Q(pk=scope.scope_id)
+
+    if any(scope.role in ("facilitator", "associate_trainer") for scope in scopes):
+        try:
+            account = user.hub_account
+        except AttributeError:
+            account = None
+        if account and account.person_id:
+            allowed |= Q(facilitators__person_id=account.person_id)
+
+    return Session.objects.filter(allowed).distinct()
+
+
+def _programmes_user_can_schedule(user):
+    """Limit session creation to programmes granted to an operational user."""
+    from apps.programmes.models import Programme
+
+    if is_super_admin(user):
+        return Programme.objects.all()
+
+    scopes = get_user_scopes(user)
+    if any(
+        scope.role in ("programme_owner", "facilitator")
+        and scope.scope_type == "all"
+        for scope in scopes
+    ):
+        return Programme.objects.all()
+
+    programme_ids = [
+        scope.scope_id
+        for scope in scopes
+        if scope.role in ("programme_owner", "facilitator")
+        and scope.scope_type == "programme"
+        and scope.scope_id is not None
+    ]
+    return Programme.objects.filter(pk__in=programme_ids)
+
+
 @login_required
 def session_list(request):
     """List of sessions the user can see."""
     from apps.programmes.models import Programme
 
-    qs = Session.objects.select_related("programme", "host_unit").annotate(
+    qs = _sessions_visible_to(request.user).select_related("programme", "host_unit").annotate(
         attendance_count=Count("attendances")
     )
-
-    # Scoping based on role
-    if not is_super_admin(request.user):
-        try:
-            account = request.user.hub_account
-            # Facilitators only see sessions where they are listed as a facilitator
-            qs = qs.filter(facilitators__person=account.person).distinct()
-        except AttributeError:
-            # User has no hub_account (e.g. not properly provisioned)
-            qs = qs.none()
 
     # Optional filters
     programme_id = request.GET.get("programme")
@@ -313,7 +392,9 @@ def session_list(request):
     qs = qs.order_by("-start_at")
 
     # Programme filter choices
-    programmes = Programme.objects.filter(status="active").order_by("name")
+    programmes = Programme.objects.filter(
+        sessions__in=qs, status="active"
+    ).distinct().order_by("name")
 
     return render(
         request,
@@ -338,8 +419,13 @@ def session_create(request):
     """Create a new session."""
     from datetime import datetime
 
+    programmes = _programmes_user_can_schedule(request.user)
+    if not programmes.exists():
+        raise PermissionDenied
+
     if request.method == "POST":
         form = SessionForm(request.POST)
+        form.fields["programme"].queryset = programmes
         if form.is_valid():
             session = form.save(commit=False)
 
@@ -373,6 +459,7 @@ def session_create(request):
             return redirect("session_console", session_id=session.id)
     else:
         form = SessionForm()
+        form.fields["programme"].queryset = programmes
 
     return render(
         request,
@@ -385,7 +472,7 @@ def session_create(request):
 def session_console(request, session_id):
     """Live console for a session: rotating QR, roster, close button."""
     session = get_object_or_404(
-        Session.objects.select_related("programme"), id=session_id
+        _sessions_visible_to(request.user).select_related("programme"), id=session_id
     )
 
     return render(
@@ -400,7 +487,7 @@ def session_console(request, session_id):
 def session_close(request, session_id):
     """Close a session - mark it closed, mark partials as absent."""
     session = get_object_or_404(
-        Session.objects.select_related("programme", "host_unit"), id=session_id
+        _sessions_visible_to(request.user).select_related("programme", "host_unit"), id=session_id
     )
 
     # Count attendance states for the confirmation page
@@ -412,10 +499,6 @@ def session_close(request, session_id):
     if request.method == "POST":
         session.status = "closed"
         session.save(update_fields=["status"])
-
-        Attendance.objects.filter(session=session, status="partial").update(
-            status="absent"
-        )
 
         messages.success(request, f"Session '{session.title}' closed.")
         return redirect("session_list")
@@ -444,7 +527,7 @@ def session_qr_fragment(request, session_id):
     import qrcode
     from urllib.parse import quote
 
-    session = get_object_or_404(Session, id=session_id)
+    session = get_object_or_404(_sessions_visible_to(request.user), id=session_id)
     token = _rotating_token(session)
 
     # Build the FULL URL including the token
@@ -479,7 +562,7 @@ def session_qr_fragment(request, session_id):
 @login_required
 def session_roster_fragment(request, session_id):
     """HTML fragment: attendance count + list. Polled by HTMX every 5s."""
-    session = get_object_or_404(Session, id=session_id)
+    session = get_object_or_404(_sessions_visible_to(request.user), id=session_id)
 
     attendances = (
         Attendance.objects.filter(session=session)
@@ -506,7 +589,7 @@ def session_roster_fragment(request, session_id):
 @login_required
 def session_qr_json(request, session_id):
     """JSON endpoint that returns the currently-valid rotating token."""
-    session = get_object_or_404(Session, id=session_id)
+    session = get_object_or_404(_sessions_visible_to(request.user), id=session_id)
     token = _rotating_token(session)
     checkin_url = request.build_absolute_uri(
         f"/checkin/{session.session_code}/?t={token}"
@@ -524,7 +607,7 @@ def session_qr_json(request, session_id):
 @login_required
 def session_live_stats(request, session_id):
     """JSON endpoint for external clients that want live stats."""
-    session = get_object_or_404(Session, id=session_id)
+    session = get_object_or_404(_sessions_visible_to(request.user), id=session_id)
 
     count = Attendance.objects.filter(session=session).count()
 
@@ -599,61 +682,12 @@ def followup_form(request, token):
 @login_required
 def session_checkout_console(request, session_id):
     """Display the check-out QR code for a session."""
-    session = get_object_or_404(Session, id=session_id)
-
+    session = get_object_or_404(_sessions_visible_to(request.user), id=session_id)
+    
     checkout_url = request.build_absolute_uri(
-        f"/checkout/identify/{session.session_code}/"
-    )
-
-    return render(
-        request,
-        "sessions/session_checkout_console.html",
-        {"session": session, "checkout_url": checkout_url},
-    )
-
-
-def checkout_identify(request, code):
-    """Participant scans the checkout QR and enters their email/ID."""
-    session = get_object_or_404(
-        Session, session_code=code, status__in=["scheduled", "open"]
-    )
-
-    if request.method == "POST":
-        identifier = request.POST.get("identifier", "").strip()
-
-        person = Person.objects.filter(
-            Q(email__iexact=identifier) | Q(staff_or_student_no__iexact=identifier)
-        ).first()
-
-        if person:
-            attendance = Attendance.objects.filter(session=session, person=person).first()
-            if attendance:
-                return redirect(
-                    "checkout",
-                    code=session.session_code,
-                    person_id=person.id,
-                )
-            else:
-                messages.error(request, "You were not checked in to this session.")
-        else:
-            messages.error(request, "We couldn't find a record with that email or ID.")
-
-    return render(request, "public/checkout_identify.html", 
-                  {"session": session})  
-    
-    
-    
-@login_required
-def session_checkout_console(request, session_id):
-    """Display the check-out QR code for a session."""
-    session = get_object_or_404(Session, id=session_id)
-    
-    # Build the URL that the QR code will point to
-    checkout_url = request.build_absolute_uri(
-        f"/checkout/identify/{session.session_code}/"
+        reverse("checkout_identify", kwargs={"code": session.session_code})
     )
     
-    # Generate the SVG QR code using your helper
     qr_svg_uri = qr_data_uri(checkout_url)
     
     return render(
@@ -676,13 +710,11 @@ def checkout_identify(request, code):
     if request.method == "POST":
         identifier = request.POST.get("identifier", "").strip()
 
-        # Find the person by email or staff number
         person = Person.objects.filter(
             Q(email__iexact=identifier) | Q(staff_or_student_no__iexact=identifier)
         ).first()
 
         if person:
-            # Check if they actually attended this session
             attendance = Attendance.objects.filter(session=session, person=person).first()
             if attendance:
                 return redirect(
@@ -696,4 +728,3 @@ def checkout_identify(request, code):
             messages.error(request, "We couldn't find a record with that email or ID.")
 
     return render(request, "public/checkout_identify.html", {"session": session})
-    

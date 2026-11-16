@@ -32,6 +32,7 @@ class Credential(models.Model):
     ]
     STATUS_CHOICES = [
         ("valid", "Valid"),
+        ("expired", "Expired"),
         ("revoked", "Revoked"),
     ]
 
@@ -291,3 +292,47 @@ class CorrectionRequest(models.Model):
 
     def __str__(self):
         return f"Correction - {self.person.full_name}"
+
+
+class PassportStampView(models.Model):
+    """Records the first time a participant sees an attendance stamp."""
+
+    person = models.ForeignKey(
+        Person, on_delete=models.CASCADE, related_name="seen_passport_stamps"
+    )
+    attendance = models.ForeignKey(
+        "training.Attendance", on_delete=models.CASCADE, related_name="passport_views"
+    )
+    first_seen_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["person", "attendance"], name="uniq_passport_stamp_view"
+            )
+        ]
+
+
+class LearningGoal(models.Model):
+    """A personal development goal set by a passport holder."""
+
+    STATUS_CHOICES = [
+        ("active", "Active"),
+        ("completed", "Completed"),
+        ("archived", "Archived"),
+    ]
+
+    person = models.ForeignKey(
+        Person, on_delete=models.CASCADE, related_name="learning_goals"
+    )
+    title = models.CharField(max_length=240)
+    target_date = models.DateField(null=True, blank=True)
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default="active")
+    completed_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["status", "target_date", "-created_at"]
+
+    def __str__(self):
+        return f"{self.person.full_name}: {self.title}"

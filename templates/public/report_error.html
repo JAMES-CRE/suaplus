@@ -4,7 +4,7 @@
 {% block title %}Report an Error - Sua+{% endblock %}
 
 {% block content %}
-<div class="max-w-md mx-auto px-6 py-12 pb-32">
+<div class="max-w-md mx-auto px-4 sm:px-6 py-8 md:py-12 pb-20 md:pb-32">
 
     <h1 class="font-syncopate text-4xl md:text-5xl uppercase tracking-widest text-kec-charcoal mb-4">
         Report an Error
@@ -18,6 +18,17 @@
 
     <form method="post">
         {% csrf_token %}
+
+        {% if stamps %}
+        <div class="mb-6">
+            <label for="session" class="block text-xs font-bold text-kec-red uppercase tracking-widest mb-3">Related workshop</label>
+            <select name="session" id="session" class="form-input">
+                <option value="">General passport issue</option>
+                {% for stamp in stamps %}<option value="{{ stamp.session.id }}">{{ stamp.session.title }} on {{ stamp.session.start_at|date:"d M Y" }}</option>{% endfor %}
+            </select>
+            <p class="mt-2 text-xs text-kec-grey">Choose a workshop so its facilitator can review the correction.</p>
+        </div>
+        {% endif %}
 
         <div class="mb-6">
             <label class="block text-xs font-bold text-kec-red uppercase tracking-widest mb-3">What is the error?</label>

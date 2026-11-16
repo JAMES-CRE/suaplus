@@ -25,7 +25,7 @@ class CheckinForm(forms.Form):
     organisation_name = forms.CharField(max_length=250, required=False)
 
     consent = forms.BooleanField(
-        required=True,
+        required=False,
         label="I consent to Sua+ recording my data for training records",
     )
     sms_consent = forms.BooleanField(
@@ -40,6 +40,7 @@ class CheckinForm(forms.Form):
     )
     guardian_name = forms.CharField(max_length=200, required=False)
     guardian_contact = forms.CharField(max_length=100, required=False)
+    guardian_consent = forms.BooleanField(required=False)
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -57,6 +58,8 @@ class CheckinForm(forms.Form):
         age_band = cleaned.get("age_band")
         guardian_name = cleaned.get("guardian_name", "").strip()
         guardian_contact = cleaned.get("guardian_contact", "").strip()
+        guardian_consent = cleaned.get("guardian_consent", False)
+        consent = cleaned.get("consent", False)
 
         if aff in ("staff", "student") and not (number or email):
             raise forms.ValidationError(
@@ -69,14 +72,16 @@ class CheckinForm(forms.Form):
             )
 
         if age_band == "under_18":
-            if not guardian_name or not guardian_contact:
+            if not guardian_name or not guardian_contact or not guardian_consent:
                 raise forms.ValidationError(
-                    "For participants under 18, guardian name and contact are required."
+                    "For participants under 18, guardian name, contact, and consent are required."
                 )
             if phone:
                 raise forms.ValidationError(
                     "Phone numbers are not stored for minors. Please remove the phone field."
                 )
+        elif not consent:
+            raise forms.ValidationError("Consent is required to check in.")
 
         return cleaned
 

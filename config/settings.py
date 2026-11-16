@@ -5,6 +5,7 @@ Django settings for config project.
 from pathlib import Path
 import environ
 import os
+from django.core.exceptions import ImproperlyConfigured
 
 
 # 1. Environment & Base Directory 
@@ -19,7 +20,16 @@ SECRET_KEY = env(
 )
 DEBUG = env.bool("DJANGO_DEBUG", default=True)
 ALLOWED_HOSTS = env.list("DJANGO_ALLOWED_HOSTS", default=["localhost", "127.0.0.1","testserver","10.42.88.75"])
-ALLOWED_HOSTS=["*"]
+
+if not DEBUG and SECRET_KEY.startswith("django-insecure-"):
+    raise ImproperlyConfigured(
+        "DJANGO_SECRET_KEY must be set to a secure value when DJANGO_DEBUG is false."
+    )
+
+if not DEBUG and "*" in ALLOWED_HOSTS:
+    raise ImproperlyConfigured(
+        "DJANGO_ALLOWED_HOSTS must list explicit hosts when DJANGO_DEBUG is false."
+    )
 
 # 2. Email, SMS & API Keys 
 if env("SMTP_HOST", default=""):
@@ -113,13 +123,21 @@ WSGI_APPLICATION = "config.wsgi.application"
 
 
 # 4. Database
+if not DEBUG and not all(
+    os.environ.get(name)
+    for name in ("DB_NAME", "DB_USER", "DB_PASSWORD", "DB_HOST")
+):
+    raise ImproperlyConfigured(
+        "Production database settings DB_NAME, DB_USER, DB_PASSWORD, and DB_HOST must be configured."
+    )
+
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.postgresql",
-        "NAME": os.environ.get("DB_NAME", "suaplus"),
-        "USER": os.environ.get("DB_USER", "suaplus_dev"),
-        "PASSWORD": os.environ.get("DB_PASSWORD", "suaplusdevelopment"),
-        "HOST": os.environ.get("DB_HOST", "localhost"),
+        "NAME": env("DB_NAME", default="suaplus"),
+        "USER": env("DB_USER", default="suaplus_dev" if DEBUG else ""),
+        "PASSWORD": env("DB_PASSWORD", default="suaplusdevelopment" if DEBUG else ""),
+        "HOST": env("DB_HOST", default="localhost" if DEBUG else ""),
         "PORT": os.environ.get("DB_PORT", "5432"),
     }
 }
@@ -143,6 +161,14 @@ SITE_ID = 1
 # AllAuth Core Settings
 ACCOUNT_EMAIL_VERIFICATION = "none"
 ACCOUNT_LOGIN_METHODS = {"username", "email"}
+SOCIALACCOUNT_ADAPTER = "apps.accounts.adapters.KnustSocialAccountAdapter"
+KNUST_ALLOWED_EMAIL_DOMAINS = tuple(
+    domain.casefold().strip()
+    for domain in env.list(
+        "KNUST_ALLOWED_EMAIL_DOMAINS",
+        default=["knust.edu.gh", "st.knust.edu.gh"],
+    )
+)
 #ACCOUNT_ALLOW_REGISTRATION = False
 LOGIN_REDIRECT_URL = "/hub/"
 ACCOUNT_LOGOUT_REDIRECT_URL = "/"
@@ -154,24 +180,21 @@ ACCOUNT_LOGIN_BY_CODE_REQUIRED = False
 ACCOUNT_LOGIN_BY_CODE_TIMEOUT = 600
 ACCOUNT_LOGIN_BY_CODE_MAX_ATTEMPTS = 5
 
-# Google OAuth Credentials (UITS Placeholders)
-SOCIALACCOUNT_PROVIDERS = {
-    "google": {
+# Enable Google sign-in only when UITS-provided OAuth credentials are present.
+GOOGLE_CLIENT_ID = env("GOOGLE_CLIENT_ID", default="").strip()
+GOOGLE_CLIENT_SECRET = env("GOOGLE_CLIENT_SECRET", default="").strip()
+GOOGLE_OAUTH_ENABLED = bool(GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET)
+SOCIALACCOUNT_PROVIDERS = {}
+if GOOGLE_OAUTH_ENABLED:
+    SOCIALACCOUNT_PROVIDERS["google"] = {
         "APP": {
-            "client_id": env("GOOGLE_CLIENT_ID", default="YOUR_KNUST_CLIENT_ID"),
-            "secret": env("GOOGLE_CLIENT_SECRET", default="YOUR_KNUST_CLIENT_SECRET"),
-            "key": ""
+            "client_id": GOOGLE_CLIENT_ID,
+            "secret": GOOGLE_CLIENT_SECRET,
+            "key": "",
         },
-        "SCOPE": [
-            "profile",
-            "email",
-        ],
-        "AUTH_PARAMS": {
-            "access_type": "online",
-            "hd": "knust.edu.gh", 
-        }
+        "SCOPE": ["profile", "email"],
+        "AUTH_PARAMS": {"access_type": "online"},
     }
-}
 
 
 # 6. Internationalization & Static/Media
@@ -207,6 +230,10 @@ CELERY_BEAT_SCHEDULE = {
         "task": "apps.sessions.tasks.send_90_day_surveys",
         "schedule": 60.0 * 60.0 * 24.0,
     },
+    "expire-passport-records-daily": {
+        "task": "apps.passport.tasks.expire_passport_records_task",
+        "schedule": 60.0 * 60.0 * 24.0,
+    },
 }
 
 
@@ -229,3 +256,19 @@ CONTENT_SECURITY_POLICY = {
         "connect-src": ["'self'"],
     }
 }
+
+# Production deployments terminate TLS at the UITS reverse proxy. Keep these
+# defaults enabled outside local development, with an environment override for
+# staging setups that do not yet have HTTPS configured.
+SECURE_SSL_REDIRECT = env.bool("DJANGO_SECURE_SSL_REDIRECT", default=not DEBUG)
+SESSION_COOKIE_SECURE = env.bool("DJANGO_SESSION_COOKIE_SECURE", default=not DEBUG)
+CSRF_COOKIE_SECURE = env.bool("DJANGO_CSRF_COOKIE_SECURE", default=not DEBUG)
+SESSION_COOKIE_HTTPONLY = True
+CSRF_COOKIE_HTTPONLY = True
+SECURE_CONTENT_TYPE_NOSNIFF = True
+SECURE_REFERRER_POLICY = "same-origin"
+if not DEBUG:
+    SECURE_HSTS_SECONDS = env.int("DJANGO_SECURE_HSTS_SECONDS", default=31536000)
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = env.bool(
+        "DJANGO_SECURE_HSTS_INCLUDE_SUBDOMAINS", default=False
+    )

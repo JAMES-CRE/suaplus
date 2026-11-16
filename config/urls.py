@@ -32,6 +32,7 @@ urlpatterns = [
     path("scout/nominate/<int:tier_status_id>/", programmes_views.nominate, name="nominate"),
     path("nominations/", programmes_views.nomination_list, name="nomination_list"),
     path("nominations/<int:nomination_id>/", programmes_views.nomination_detail, name="nomination_detail"),
+    path("p/<str:token>/goals/", passport_views.passport_goals, name="passport_goals"),
     path("p/<str:token>/", passport_views.passport_view, name="passport"),
     path("sessions/", sessions_views.session_list, name="session_list"),
     path("sessions/create/", sessions_views.session_create, name="session_create"),
@@ -67,12 +68,16 @@ urlpatterns = [
     path("account/profile/", accounts_views.profile_completion, name="profile_completion"),
     path("followup/<str:token>/", sessions_views.followup_form, name="followup_form"),
     path("p/<str:token>/transcript/", passport_views.passport_transcript, name="passport_transcript"),
+    path("p/<str:token>/transcript.pdf", passport_views.passport_transcript_pdf, name="passport_transcript_pdf"),
     path("partners/", programmes_views.partner_report_list, name="partner_report_list"),
     path("partners/<int:org_id>/", programmes_views.partner_report, name="partner_report"),
     path("recognition/", programmes_views.recognition_list, name="recognition_list"),
     path("health/", health_check, name="health_check"),
     path("library/", library_views.library_dashboard, name="library_dashboard"),
+    path("library/transfer/", library_views.library_transfer, name="library_transfer"),
+    path("library/where-used/<str:item_type>/<int:item_id>/", library_views.library_where_used, name="library_where_used"),
     path("library/competency/<int:competency_id>/edit/", library_views.competency_edit, name="competency_edit"),
+    path("library/competency/draft/<int:draft_id>/", library_views.competency_draft_detail, name="competency_draft_detail"),
     path("library/competency/new/", library_views.competency_new, name="competency_new"),
     path("calendar/", core_views.calendar_list, name="calendar_list"),
     path("calendar/create/", core_views.calendar_create, name="calendar_create"),
@@ -82,18 +87,10 @@ urlpatterns = [
     
     path("", landing_page, name="home"),
     path("p/<str:token>/profile/edit/", passport_views.passport_profile_edit, name="passport_profile_edit"),
-    
-path("checkout/<str:code>/", sessions_views.checkout_identify, name="checkout_identify"),
-path("p/<str:token>/profile/edit/", passport_views.passport_profile_edit, name="passport_profile_edit"),
-path("p/<str:token>/profile/", passport_views.passport_profile, name="passport_profile"),
- 
-path("sessions/<int:session_id>/checkout/", sessions_views.session_checkout_console, name="session_checkout_console"),
-path("checkout/identify/<str:code>/", sessions_views.checkout_identify, name="checkout_identify"),
-path("my-passport/", passport_views.my_passport, name="my_passport"),    
-  
-path("sessions/<int:session_id>/checkout/", sessions_views.session_checkout_console, name="session_checkout_console"),
-path("checkout/identify/<str:code>/", sessions_views.checkout_identify, name="checkout_identify"),  
-  
+    path("p/<str:token>/profile/", passport_views.passport_profile, name="passport_profile"),
+    path("sessions/<int:session_id>/checkout/", sessions_views.session_checkout_console, name="session_checkout_console"),
+    path("checkout/identify/<str:code>/", sessions_views.checkout_identify, name="checkout_identify"),
+    path("my-passport/", passport_views.my_passport, name="my_passport"),
     
 ]
 

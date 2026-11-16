@@ -1,0 +1,56 @@
+{% extends 'base.html' %}
+
+{% block title %}Library Import and Export - Sua+ Hub{% endblock %}
+
+{% block content %}
+<main class="max-w-4xl mx-auto px-4 sm:px-6 py-8 md:py-10 pb-20">
+    <a href="{% url 'library_dashboard' %}" class="text-sm text-kec-grey hover:text-kec-red">Back to Library</a>
+    <h1 class="text-3xl font-semibold text-kec-charcoal mt-4">Library Import and Export</h1>
+    <p class="text-sm text-kec-grey mt-2">Export the current Library as CSV or Excel. Imports create unpublished drafts for curator review.</p>
+
+    {% if messages %}
+        {% for message in messages %}<div class="mt-5 p-3 bg-green-50 text-sm rounded-kec">{{ message }}</div>{% endfor %}
+    {% endif %}
+    {% if error %}<div role="alert" class="mt-5 p-3 bg-red-50 text-kec-red text-sm rounded-kec">{{ error }}</div>{% endif %}
+
+    <section class="mt-8 border border-gray-200 rounded-xl p-4 sm:p-6">
+        <h2 class="text-xl font-semibold">Export</h2>
+        <div class="flex flex-col sm:flex-row sm:flex-wrap gap-3 mt-4">
+            <a class="btn-primary text-center" href="{% url 'library_transfer' %}?export=xlsx">Download full Library workbook</a>
+            <form method="get" class="flex flex-col sm:flex-row gap-2 sm:items-center">
+                <input type="hidden" name="export" value="csv">
+                <label for="export-entity" class="sr-only">CSV data set</label>
+                <select id="export-entity" name="entity" class="form-input w-full sm:w-auto">
+                    {% for entity in entities %}<option value="{{ entity }}">{{ entity|capfirst }}</option>{% endfor %}
+                </select>
+                <button class="btn-secondary" type="submit">Download CSV</button>
+            </form>
+        </div>
+    </section>
+
+    <section class="mt-6 border border-gray-200 rounded-xl p-4 sm:p-6">
+        <h2 class="text-xl font-semibold">Import CSV or Excel</h2>
+        <p class="text-sm text-kec-grey mt-2">CSV imports support: {{ importable_entities|join:", " }}. Excel imports these same sheets. Use the exported column headers; up to 10,000 rows and 10 MB per upload.</p>
+        <p class="text-sm text-kec-grey mt-2">Frameworks, domains, and levels in a file are imported as drafts, but child rows must reference an existing framework or competency where applicable. Review and publish drafts individually in the Library admin.</p>
+        <form method="post" enctype="multipart/form-data" class="mt-5 space-y-4">
+            {% csrf_token %}
+            <div>
+                <label for="file" class="block text-sm font-medium mb-1">Library file</label>
+                <input id="file" name="file" type="file" accept=".csv,.xlsx" required class="form-input w-full">
+            </div>
+            <div>
+                <label for="entity" class="block text-sm font-medium mb-1">CSV data set</label>
+                <select id="entity" name="entity" class="form-input w-full">
+                    {% for entity in importable_entities %}<option value="{{ entity }}">{{ entity|capfirst }}</option>{% endfor %}
+                </select>
+                <p class="text-xs text-kec-grey mt-1">This selection is used for CSV files. Excel sheets identify their own data sets.</p>
+            </div>
+            <div>
+                <label for="change_reason" class="block text-sm font-medium mb-1">Reason for these changes</label>
+                <textarea id="change_reason" name="change_reason" rows="3" required class="form-input w-full" maxlength="500"></textarea>
+            </div>
+            <button class="btn-primary" type="submit">Import as drafts</button>
+        </form>
+    </section>
+</main>
+{% endblock %}

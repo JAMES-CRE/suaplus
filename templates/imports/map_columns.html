@@ -5,7 +5,7 @@
 {% block title %}Map Columns - Import{% endblock %}
 
 {% block content %}
-<div class="max-w-2xl mx-auto px-6 py-12 pb-32">
+<div class="max-w-2xl mx-auto px-4 sm:px-6 py-8 md:py-12 pb-20 md:pb-32">
 
     <a href="{% url 'import_upload' %}" class="text-sm text-kec-grey hover:text-kec-red mb-6 inline-block">
          Back to Upload
@@ -38,11 +38,25 @@
 
         <div class="space-y-6 mb-10">
 
+            {% if mapping_templates %}
+            <div>
+                <label for="mapping_template" class="block text-xs font-semibold text-kec-grey uppercase tracking-wider mb-2">
+                    Reuse a saved mapping
+                </label>
+                <select name="mapping_template" id="mapping_template" class="form-input">
+                    <option value="">Choose columns below</option>
+                    {% for template in mapping_templates %}
+                        <option value="{{ template.id }}">{{ template.name }} ({{ template.column_map.email }} / {{ template.column_map.name }})</option>
+                    {% endfor %}
+                </select>
+            </div>
+            {% endif %}
+
             <div>
                 <label for="email_col" class="block text-xs font-semibold text-kec-grey uppercase tracking-wider mb-2">
                     Email column
                 </label>
-                <select name="email_col" id="email_col" class="form-input" required>
+                <select name="email_col" id="email_col" class="form-input">
                     <option value="">Select column</option>
                     {% for col in columns %}
                         <option value="{{ col }}">{{ col }}</option>
@@ -57,7 +71,7 @@
                 <label for="name_col" class="block text-xs font-semibold text-kec-grey uppercase tracking-wider mb-2">
                     Full name column
                 </label>
-                <select name="name_col" id="name_col" class="form-input" required>
+                <select name="name_col" id="name_col" class="form-input">
                     <option value="">Select column</option>
                     {% for col in columns %}
                         <option value="{{ col }}">{{ col }}</option>
@@ -68,6 +82,19 @@
                 </p>
             </div>
 
+        </div>
+
+        <div class="mb-10 space-y-3">
+            <label class="flex items-start gap-3 cursor-pointer">
+                <input type="checkbox" name="save_mapping" value="on" class="mt-1 w-4 h-4 text-kec-red focus:ring-kec-red">
+                <span class="text-sm text-kec-charcoal">Save this column mapping for my future imports</span>
+            </label>
+            <div>
+                <label for="mapping_name" class="block text-xs font-semibold text-kec-grey uppercase tracking-wider mb-2">
+                    Mapping name
+                </label>
+                <input type="text" name="mapping_name" id="mapping_name" maxlength="100" class="form-input" placeholder="e.g. Faculty attendance list">
+            </div>
         </div>
 
         <hr class="border-gray-200 mb-10">
@@ -101,7 +128,7 @@
 
         <hr class="border-gray-200 mb-10">
 
-        <div class="flex flex-col md:flex-row gap-4 justify-end">
+        <div class="flex flex-col sm:flex-row gap-4 sm:justify-end">
             <a href="{% url 'import_upload' %}" class="btn-secondary text-center">
                 Cancel
             </a>

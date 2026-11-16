@@ -10,7 +10,7 @@
         <div class="w-16 h-16 rounded-full bg-kec-red text-white flex items-center justify-center mx-auto mb-4">
             <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm14 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"></path></svg>
         </div>
-        <h1 class="font-syncopate text-3xl md:text-4xl uppercase tracking-wider text-kec-charcoal mb-2">Check In</h1>
+        <h1 class="font-syncopate text-3xl md:text-4xl uppercase tracking-wider text-kec-charcoal mb-2">Check in</h1>
         <p class="text-sm text-kec-grey font-medium">{{ session.title }}</p>
         <p class="text-xs text-kec-grey mt-1">{{ session.programme.name }} · {{ session.start_at|date:"d M Y" }}</p>
     </div>
@@ -52,9 +52,9 @@
                 {% if form.email.errors %}<p class="text-xs text-kec-red mt-1">{{ form.email.errors.0 }}</p>{% endif %}
             </div>
 
-            <div>
+            <div id="participant-phone-field">
                 <label class="block text-xs font-semibold text-kec-grey uppercase tracking-wider mb-2">Phone (optional)</label>
-                <input type="tel" name="phone" value="{{ form.phone.value|default:'' }}" class="form-input w-full">
+                <input id="participant-phone" type="tel" name="phone" value="{{ form.phone.value|default:'' }}" class="form-input w-full">
                 {% if form.phone.errors %}<p class="text-xs text-kec-red mt-1">{{ form.phone.errors.0 }}</p>{% endif %}
             </div>
 
@@ -66,11 +66,25 @@
 
             <div>
                 <label class="block text-xs font-semibold text-kec-grey uppercase tracking-wider mb-2">Are you 18 or over?</label>
-                <select name="age_band" class="form-input w-full" required>
+                <select id="age-band" name="age_band" class="form-input w-full" required>
                     <option value="18_plus" {% if form.age_band.value == '18_plus' %}selected{% endif %}>Yes, 18 or over</option>
                     <option value="under_18" {% if form.age_band.value == 'under_18' %}selected{% endif %}>Under 18</option>
                 </select>
                 {% if form.age_band.errors %}<p class="text-xs text-kec-red mt-1">{{ form.age_band.errors.0 }}</p>{% endif %}
+            </div>
+
+            <div id="guardian-section" class="space-y-4 rounded-kec border border-amber-200 bg-amber-50 p-4" {% if form.age_band.value != 'under_18' %}hidden{% endif %}>
+                <p class="text-sm font-semibold text-kec-charcoal">A guardian or school contact is required for participants under 18.</p>
+                <div>
+                    <label for="guardian-name" class="block text-xs font-semibold text-kec-grey uppercase tracking-wider mb-2">Guardian or school contact name</label>
+                    <input id="guardian-name" type="text" name="guardian_name" value="{{ form.guardian_name.value|default:'' }}" class="form-input w-full" autocomplete="name">
+                    {% if form.guardian_name.errors %}<p class="text-xs text-kec-red mt-1">{{ form.guardian_name.errors.0 }}</p>{% endif %}
+                </div>
+                <div>
+                    <label for="guardian-contact" class="block text-xs font-semibold text-kec-grey uppercase tracking-wider mb-2">Guardian or school contact details</label>
+                    <input id="guardian-contact" type="text" name="guardian_contact" value="{{ form.guardian_contact.value|default:'' }}" class="form-input w-full" autocomplete="off">
+                    {% if form.guardian_contact.errors %}<p class="text-xs text-kec-red mt-1">{{ form.guardian_contact.errors.0 }}</p>{% endif %}
+                </div>
             </div>
 
             <div>
@@ -83,13 +97,23 @@
         <hr class="border-gray-200 my-6">
 
         <div class="space-y-3">
-            <label class="flex items-start gap-3 cursor-pointer">
-                <input type="checkbox" name="consent" required class="mt-1 w-4 h-4 text-kec-red focus:ring-kec-red">
-                <span class="text-sm text-kec-charcoal leading-tight">I consent to Sua+ recording my data for training records.</span>
-            </label>
-            {% if form.consent.errors %}<p class="text-xs text-kec-red mt-1">{{ form.consent.errors.0 }}</p>{% endif %}
+            <div id="adult-consent-field" {% if form.age_band.value == 'under_18' %}hidden{% endif %}>
+                <label class="flex items-start gap-3 cursor-pointer">
+                    <input id="adult-consent" type="checkbox" name="consent" {% if form.age_band.value != 'under_18' %}required{% endif %} class="mt-1 w-4 h-4 text-kec-red focus:ring-kec-red">
+                    <span class="text-sm text-kec-charcoal leading-tight">I consent to Sua+ recording my data for training records.</span>
+                </label>
+                {% if form.consent.errors %}<p class="text-xs text-kec-red mt-1">{{ form.consent.errors.0 }}</p>{% endif %}
+            </div>
 
-            <label class="flex items-start gap-3 cursor-pointer">
+            <div id="guardian-consent-field" {% if form.age_band.value != 'under_18' %}hidden{% endif %}>
+                <label class="flex items-start gap-3 cursor-pointer">
+                    <input id="guardian-consent" type="checkbox" name="guardian_consent" {% if form.age_band.value == 'under_18' %}required{% endif %} class="mt-1 w-4 h-4 text-kec-red focus:ring-kec-red">
+                    <span class="text-sm text-kec-charcoal leading-tight">I am the parent, guardian, or authorised school contact, and I consent to Sua+ recording this participant’s data for training records.</span>
+                </label>
+                {% if form.guardian_consent.errors %}<p class="text-xs text-kec-red mt-1">{{ form.guardian_consent.errors.0 }}</p>{% endif %}
+            </div>
+
+            <label id="sms-consent-field" class="flex items-start gap-3 cursor-pointer">
                 <input type="checkbox" name="sms_consent" class="mt-1 w-4 h-4 text-kec-red focus:ring-kec-red">
                 <span class="text-sm text-kec-charcoal leading-tight">Send me SMS updates about Sua+ (optional)</span>
             </label>
@@ -100,4 +124,44 @@
         </button>
     </form>
 </div>
-{% endblock %}code
+<script>
+    (() => {
+        const ageBand = document.getElementById("age-band");
+        const guardianSection = document.getElementById("guardian-section");
+        const guardianName = document.getElementById("guardian-name");
+        const guardianContact = document.getElementById("guardian-contact");
+        const adultConsentField = document.getElementById("adult-consent-field");
+        const adultConsent = document.getElementById("adult-consent");
+        const guardianConsentField = document.getElementById("guardian-consent-field");
+        const guardianConsent = document.getElementById("guardian-consent");
+        const phoneField = document.getElementById("participant-phone-field");
+        const phoneInput = document.getElementById("participant-phone");
+        const smsConsentField = document.getElementById("sms-consent-field");
+        const smsConsent = smsConsentField.querySelector("input");
+
+        function updateAgeFields() {
+            const isMinor = ageBand.value === "under_18";
+            guardianSection.hidden = !isMinor;
+            guardianName.required = isMinor;
+            guardianContact.required = isMinor;
+            adultConsentField.hidden = isMinor;
+            adultConsent.required = !isMinor;
+            adultConsent.disabled = isMinor;
+            if (isMinor) adultConsent.checked = false;
+            guardianConsentField.hidden = !isMinor;
+            guardianConsent.required = isMinor;
+            guardianConsent.disabled = !isMinor;
+            if (!isMinor) guardianConsent.checked = false;
+            phoneField.hidden = isMinor;
+            phoneInput.disabled = isMinor;
+            if (isMinor) phoneInput.value = "";
+            smsConsentField.hidden = isMinor;
+            smsConsent.disabled = isMinor;
+            if (isMinor) smsConsent.checked = false;
+        }
+
+        ageBand.addEventListener("change", updateAgeFields);
+        updateAgeFields();
+    })();
+</script>
+{% endblock %}

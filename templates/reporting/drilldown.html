@@ -17,6 +17,11 @@
         <p class="text-sm text-kec-grey">
             {{ rows|length }} record{{ rows|length|pluralize }}
         </p>
+        <div class="flex gap-2 mt-4" aria-label="Export this report">
+            <a class="btn-secondary text-xs" href="?programme={{ request.GET.programme }}&unit={{ request.GET.unit }}&export=csv">CSV</a>
+            <a class="btn-secondary text-xs" href="?programme={{ request.GET.programme }}&unit={{ request.GET.unit }}&export=xlsx">XLSX</a>
+            <a class="btn-secondary text-xs" href="?programme={{ request.GET.programme }}&unit={{ request.GET.unit }}&export=pdf">PDF</a>
+        </div>
     </div>
 
     <!-- Active Filters Banner -->
@@ -70,9 +75,11 @@
         </div>
     {% else %}
         <div class="text-center py-20">
-            <p class="text-base text-kec-grey">
-                No records match your filters.
-            </p>
+            {% if small_group_suppressed %}
+                <p class="text-base text-kec-grey">Fewer than 5 records match these filters, so the individual records are hidden.</p>
+            {% else %}
+                <p class="text-base text-kec-grey">No records match your filters.</p>
+            {% endif %}
             <a href="{% url 'drilldown' kpi %}" class="btn-secondary inline-block mt-6 px-6 py-2">Clear filters</a>
         </div>
     {% endif %}

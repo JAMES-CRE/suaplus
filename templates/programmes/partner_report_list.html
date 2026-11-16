@@ -1,7 +1,7 @@
 {% extends 'base.html' %}
 {% load static %}
 
-{% block title %}Partner Reports — Sua+ Hub{% endblock %}
+{% block title %}Partner Reports - Sua+ Hub{% endblock %}
 
 {% block content %}
 <div class="max-w-5xl mx-auto px-4 sm:px-6 py-8 md:py-12 pb-32">
@@ -45,7 +45,7 @@
                     <tr class="border-b border-gray-100 last:border-0 hover:bg-gray-50 transition-colors">
                         <td class="px-4 py-4 text-sm text-kec-charcoal font-medium">{{ o.name }}</td>
                         <td class="px-4 py-4 text-sm text-kec-grey">{{ o.get_type_display }}</td>
-                        <td class="px-4 py-4 text-sm text-kec-grey">{{ o.region|default:"—" }}</td>
+                        <td class="px-4 py-4 text-sm text-kec-grey">{{ o.region|default:"Not available" }}</td>
                         <td class="px-4 py-4 text-sm text-kec-grey">{{ o.programme_count }}</td>
                         <td class="px-4 py-4 text-right">
                             <a href="{% url 'partner_report' o.id %}" class="text-sm font-semibold text-kec-charcoal hover:text-kec-red">

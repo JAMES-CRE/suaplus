@@ -1,6 +1,9 @@
 """Library models - frameworks, domains, competencies, levels, crosswalks."""
 
 from django.db import models
+from django.conf import settings
+from django.core.exceptions import ValidationError
+from django.core.validators import MaxValueValidator, MinValueValidator
 
 
 class Framework(models.Model):
@@ -32,6 +35,7 @@ class Framework(models.Model):
         default="manual",
     )
     is_knust = models.BooleanField(default=False)
+    revision = models.PositiveIntegerField(default=1)
     status = models.CharField(
         max_length=10, choices=STATUS_CHOICES, default="active"
     )
@@ -44,6 +48,53 @@ class Framework(models.Model):
 
     def __str__(self):
         return f"{self.code} - {self.name}"
+
+
+class FrameworkDraft(models.Model):
+    """Proposed framework metadata held separately until publication."""
+
+    DRAFT_STATUS_CHOICES = [
+        ("draft", "Draft"),
+        ("published", "Published"),
+    ]
+    SOURCE_CHOICES = [
+        ("csv", "CSV"),
+        ("case_json", "IMS CASE JSON"),
+        ("built_in", "Built-in"),
+        ("manual", "Manual"),
+    ]
+
+    framework = models.ForeignKey(
+        Framework,
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+        related_name="drafts",
+    )
+    code = models.CharField(max_length=10)
+    name = models.CharField(max_length=200)
+    publisher = models.CharField(max_length=200, blank=True, default="")
+    version = models.CharField(max_length=30, blank=True, default="")
+    source = models.CharField(max_length=10, choices=SOURCE_CHOICES, default="manual")
+    is_knust = models.BooleanField(default=False)
+    proposed_status = models.CharField(max_length=10, choices=Framework.STATUS_CHOICES)
+    change_reason = models.TextField()
+    status = models.CharField(
+        max_length=10, choices=DRAFT_STATUS_CHOICES, default="draft"
+    )
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name="framework_drafts_created",
+    )
+    published_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"Framework draft: {self.code} ({self.status})"
 
 
 class Domain(models.Model):
@@ -81,6 +132,49 @@ class Domain(models.Model):
 
     def __str__(self):
         return f"{self.code} - {self.name}"
+
+
+class DomainDraft(models.Model):
+    """Proposed domain metadata that is applied only on publication."""
+
+    DRAFT_STATUS_CHOICES = [
+        ("draft", "Draft"),
+        ("published", "Published"),
+    ]
+
+    domain = models.ForeignKey(
+        Domain,
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+        related_name="drafts",
+    )
+    framework = models.ForeignKey(
+        Framework, on_delete=models.PROTECT, related_name="domain_drafts"
+    )
+    code = models.CharField(max_length=10)
+    name = models.CharField(max_length=150)
+    description = models.TextField(blank=True, default="")
+    colour = models.CharField(max_length=7, default="#002147")
+    display_order = models.PositiveSmallIntegerField(default=0)
+    proposed_status = models.CharField(max_length=10, choices=Domain.STATUS_CHOICES)
+    change_reason = models.TextField()
+    status = models.CharField(
+        max_length=10, choices=DRAFT_STATUS_CHOICES, default="draft"
+    )
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name="domain_drafts_created",
+    )
+    published_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.framework.code} domain draft: {self.code} ({self.status})"
 
 
 class Competency(models.Model):
@@ -129,6 +223,69 @@ class Competency(models.Model):
         return f"{self.code} - {self.title}"
 
 
+class CompetencyDraft(models.Model):
+    """Proposed competency edits awaiting publication or a second curator."""
+
+    STATUS_CHOICES = [
+        ("draft", "Draft"),
+        ("awaiting_approval", "Awaiting second curator"),
+        ("published", "Published"),
+    ]
+
+    competency = models.ForeignKey(
+        Competency,
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+        related_name="drafts",
+    )
+    domain = models.ForeignKey(
+        Domain,
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+        related_name="competency_drafts",
+    )
+    code = models.CharField(max_length=20, default="")
+    title = models.CharField(max_length=200)
+    description = models.TextField(blank=True, default="")
+    proficient_descriptor = models.TextField(blank=True, default="")
+    proposed_status = models.CharField(
+        max_length=10, choices=Competency.STATUS_CHOICES, default="active"
+    )
+    proposed_replaced_by = models.ForeignKey(
+        Competency,
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+        related_name="replacement_drafts",
+    )
+    change_reason = models.TextField(blank=True, default="")
+    status = models.CharField(
+        max_length=20, choices=STATUS_CHOICES, default="draft"
+    )
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name="competency_drafts_created",
+    )
+    approved_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+        related_name="competency_drafts_approved",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    published_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.competency.code} draft ({self.get_status_display()})"
+
+
 class Level(models.Model):
     """A proficiency level per framework, 1–5 for KNUST scale."""
 
@@ -152,6 +309,56 @@ class Level(models.Model):
 
     def __str__(self):
         return f"Level {self.ordinal} - {self.label}"
+
+
+class LevelDraft(models.Model):
+    """Proposed proficiency-level change requiring second-curator approval."""
+
+    STATUS_CHOICES = [
+        ("draft", "Draft"),
+        ("awaiting_approval", "Awaiting second curator"),
+        ("published", "Published"),
+    ]
+
+    level = models.ForeignKey(
+        Level,
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+        related_name="drafts",
+    )
+    framework = models.ForeignKey(
+        Framework, on_delete=models.PROTECT, related_name="level_drafts"
+    )
+    ordinal = models.PositiveSmallIntegerField(
+        validators=[MinValueValidator(1), MaxValueValidator(5)]
+    )
+    label = models.CharField(max_length=40)
+    descriptor = models.TextField(blank=True, default="")
+    change_reason = models.TextField()
+    status = models.CharField(
+        max_length=20, choices=STATUS_CHOICES, default="draft"
+    )
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name="level_drafts_created",
+    )
+    approved_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+        related_name="level_drafts_approved",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    published_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.framework.code} level {self.ordinal} draft ({self.get_status_display()})"
 
 
 class Crosswalk(models.Model):
@@ -183,6 +390,60 @@ class Crosswalk(models.Model):
 
     def __str__(self):
         return f"{self.knust_competency.code} → {self.external_competency.code}"
+
+
+class CrosswalkDraft(models.Model):
+    """A crosswalk change that remains inactive until a second curator approves it."""
+
+    STATUS_CHOICES = [
+        ("draft", "Draft"),
+        ("awaiting_approval", "Awaiting second curator"),
+        ("published", "Published"),
+    ]
+
+    crosswalk = models.ForeignKey(
+        Crosswalk,
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+        related_name="drafts",
+    )
+    knust_competency = models.ForeignKey(
+        Competency, on_delete=models.PROTECT, related_name="crosswalk_drafts"
+    )
+    external_competency = models.ForeignKey(
+        Competency,
+        on_delete=models.PROTECT,
+        related_name="proposed_crosswalks",
+    )
+    external_level = models.ForeignKey(
+        Level, null=True, blank=True, on_delete=models.PROTECT
+    )
+    note = models.CharField(max_length=300, blank=True, default="")
+    change_reason = models.TextField()
+    status = models.CharField(
+        max_length=20, choices=STATUS_CHOICES, default="draft"
+    )
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name="crosswalk_drafts_created",
+    )
+    approved_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+        related_name="crosswalk_drafts_approved",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    published_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.knust_competency.code} crosswalk draft ({self.get_status_display()})"
 
 
 class EvidenceRule(models.Model):
@@ -227,6 +488,60 @@ class EvidenceRule(models.Model):
     def __str__(self):
         scope = self.competency.code if self.competency else "all competencies"
         return f"{self.get_evidence_type_display()} → max {self.max_level} ({scope})"
+
+
+class EvidenceRuleDraft(models.Model):
+    """A proposed evidence rule that needs a separate curator to publish."""
+
+    STATUS_CHOICES = [
+        ("draft", "Draft"),
+        ("awaiting_approval", "Awaiting second curator"),
+        ("published", "Published"),
+    ]
+
+    evidence_rule = models.ForeignKey(
+        EvidenceRule,
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+        related_name="drafts",
+    )
+    evidence_type = models.CharField(
+        max_length=20, choices=EvidenceRule.EVIDENCE_TYPE_CHOICES
+    )
+    description = models.CharField(max_length=300, blank=True, default="")
+    max_level = models.PositiveSmallIntegerField()
+    competency = models.ForeignKey(
+        Competency,
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+        related_name="evidence_rule_drafts",
+    )
+    change_reason = models.TextField()
+    status = models.CharField(
+        max_length=20, choices=STATUS_CHOICES, default="draft"
+    )
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name="evidence_rule_drafts_created",
+    )
+    approved_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+        related_name="evidence_rule_drafts_approved",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    published_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.get_evidence_type_display()} evidence rule draft ({self.get_status_display()})"
 class SurveyTemplate(models.Model):
     """Survey question sets, editable and versioned."""
 
@@ -311,3 +626,66 @@ class CertificationCompetency(models.Model):
 
     def __str__(self):
         return f"{self.certification.title} → {self.competency.code} (L{self.max_level})"      
+
+
+class LibraryVersion(models.Model):
+    """Immutable snapshot of a published Library item or framework revision."""
+
+    ITEM_TYPE_CHOICES = [
+        ("framework", "Framework metadata"),
+        ("framework_snapshot", "Framework snapshot"),
+        ("domain", "Domain"),
+        ("level", "Proficiency level"),
+        ("competency", "Competency"),
+        ("crosswalk", "Crosswalk"),
+        ("evidence_rule", "Evidence rule"),
+    ]
+
+    framework = models.ForeignKey(
+        Framework,
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+        related_name="library_versions",
+    )
+    item_type = models.CharField(max_length=24, choices=ITEM_TYPE_CHOICES)
+    item_id = models.PositiveBigIntegerField()
+    version_number = models.PositiveIntegerField()
+    framework_revision = models.PositiveIntegerField(default=1)
+    snapshot = models.JSONField()
+    change_reason = models.TextField(blank=True, default="")
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="library_versions_created",
+    )
+    approved_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="library_versions_approved",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["item_type", "item_id", "-version_number"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["item_type", "item_id", "version_number"],
+                name="uniq_library_item_version",
+            ),
+        ]
+
+    def save(self, *args, **kwargs):
+        if self.pk and type(self).objects.filter(pk=self.pk).exists():
+            raise ValidationError("Published Library versions are immutable.")
+        return super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        raise ValidationError("Published Library versions cannot be deleted.")
+
+    def __str__(self):
+        return f"{self.get_item_type_display()} {self.item_id} v{self.version_number}"

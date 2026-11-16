@@ -95,3 +95,39 @@ def test_user_with_no_role_sees_nothing(client, tier_status):
     assert response.status_code == 200
     assert b"Kwame Mensah" not in response.content
     assert b"No eligible people" in response.content
+
+
+@pytest.mark.django_db
+def test_recognition_list_only_includes_confirmed_adults(client, programme):
+    adult = Person.objects.create(
+        affiliation="staff", full_name="Adult Trainer", age_band="18_plus"
+    )
+    minor = Person.objects.create(
+        affiliation="external", full_name="Minor Trainer", age_band="under_18"
+    )
+    unknown = Person.objects.create(
+        affiliation="staff", full_name="Unknown Age Trainer", age_band="unknown"
+    )
+    for person in (adult, minor, unknown):
+        TierStatus.objects.create(
+            person=person,
+            programme=programme,
+            tier=4,
+            status="approved",
+            criteria_met=3,
+            criteria_total=3,
+        )
+
+    user = _make_hub_user(
+        "recognition-admin@knust.edu.gh",
+        role="super_admin",
+        scope_type="all",
+    )
+    client.force_login(user)
+
+    response = client.get(reverse("recognition_list"))
+
+    assert response.status_code == 200
+    assert b"Adult Trainer" in response.content
+    assert b"Minor Trainer" not in response.content
+    assert b"Unknown Age Trainer" not in response.content

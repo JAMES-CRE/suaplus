@@ -1,4 +1,5 @@
 from celery import shared_task
+from django.conf import settings
 from django.utils import timezone
 from datetime import timedelta
 import secrets
@@ -29,7 +30,8 @@ def send_90_day_surveys():
             person=att.person,
             token_hash=hashlib.sha256(raw.encode()).hexdigest(),
         )
-        survey_url = f"http://127.0.0.1:8000/followup/{raw}/"
+        site_url = settings.SITE_URL.rstrip("/")
+        survey_url = f"{site_url}/followup/{raw}/"
 
         send_notification(
             person=att.person,

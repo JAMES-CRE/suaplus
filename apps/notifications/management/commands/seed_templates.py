@@ -44,6 +44,26 @@ TEMPLATES = [
         ),
     },
     {
+        "key": "credential_submitted",
+        "channel": "email",
+        "subject": "We Received Your Credential Submission",
+        "body": (
+            "Hello {name},\n\n"
+            "Your credential, '{credential_title}', has been submitted for review.\n\n"
+            "The Sua+ Team"
+        ),
+    },
+    {
+        "key": "credential_in_review",
+        "channel": "email",
+        "subject": "Your Credential Is Under Review",
+        "body": (
+            "Hello {name},\n\n"
+            "A reviewer has started reviewing your credential, '{credential_title}'.\n\n"
+            "The Sua+ Team"
+        ),
+    },
+    {
         "key": "credential_approved",
         "channel": "email",
         "subject": "Your Credential was Approved",
@@ -53,6 +73,32 @@ TEMPLATES = [
             "added to your Sua+ passport.\n\n"
             "View your passport:\n"
             "{passport_url}\n\n"
+            "The Sua+ Team"
+        ),
+    },
+    {
+        "key": "credential_rejected",
+        "channel": "email",
+        "subject": "Your Credential Submission Was Not Approved",
+        "body": (
+            "Hello {name},\n\n"
+            "Your credential, '{credential_title}', was not approved.\n\n"
+            "Reviewer comments:\n"
+            "{review_note}\n\n"
+            "The Sua+ Team"
+        ),
+    },
+    {
+        "key": "credential_returned",
+        "channel": "email",
+        "subject": "Action Required: Update Your Credential Submission",
+        "body": (
+            "Hello {name},\n\n"
+            "Your submitted credential, '{credential_title}', needs more information "
+            "before it can be reviewed.\n\n"
+            "Reviewer comments:\n"
+            "{review_note}\n\n"
+            "Please update your submission and contact your Sua+ programme team.\n\n"
             "The Sua+ Team"
         ),
     },

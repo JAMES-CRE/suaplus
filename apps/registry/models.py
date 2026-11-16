@@ -120,7 +120,8 @@ class Person(models.Model):
                 name="uniq_staff_or_student_no",
             ),
             models.CheckConstraint(
-                condition=models.Q(age_band="under_18") | models.Q(phone__isnull=True),
+                condition=~models.Q(age_band="under_18")
+                | models.Q(phone__isnull=True),
                 name="minor_no_phone",
             ),
         ]
@@ -154,6 +155,7 @@ class Consent(models.Model):
     )
     type = models.CharField(max_length=20, choices=TYPE_CHOICES)
     given_by = models.CharField(max_length=200)
+    contact_details = models.CharField(max_length=100, blank=True, default="")
     given_at = models.DateTimeField(auto_now_add=True)
     notice_version = models.CharField(max_length=20)
     withdrawn_at = models.DateTimeField(null=True, blank=True)

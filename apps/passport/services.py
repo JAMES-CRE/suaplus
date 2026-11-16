@@ -1,10 +1,28 @@
-"""Open Badges 3.0 generator."""
+
 
 import json
 import uuid
 from datetime import datetime, timezone
 from django.conf import settings
 import jwt
+
+
+def expire_due_records(today=None):
+    """Mark credentials and evidence expired after their stated expiry date."""
+    from django.db import transaction
+    from django.utils import timezone as django_timezone
+
+    from apps.passport.models import Credential, Evidence
+
+    today = today or django_timezone.localdate()
+    with transaction.atomic():
+        credentials = Credential.objects.filter(
+            status="valid", expires_at__lt=today
+        ).update(status="expired")
+        evidence = Evidence.objects.filter(
+            status="valid", expires_at__lt=today
+        ).update(status="expired", is_expired=True)
+    return {"credentials": credentials, "evidence": evidence}
 
 def generate_badge_json(person, competency, level):
     """Generate a signed Open Badge 3.0 JSON-LD credential."""

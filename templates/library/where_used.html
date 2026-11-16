@@ -1,0 +1,36 @@
+{% extends 'base.html' %}
+
+{% block title %}Where Used · {{ item }} · Sua+ Library{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto px-4 sm:px-6 py-8 md:py-10 pb-20 md:pb-32">
+    <a href="{% url 'library_dashboard' %}" class="text-sm text-kec-grey hover:text-kec-red mb-6 inline-block">Back to Library</a>
+    <p class="text-xs font-bold text-kec-red uppercase tracking-widest mb-2">Where used · {{ item_type|cut:"-" }}</p>
+    <h1 class="text-2xl md:text-3xl font-semibold text-kec-charcoal mb-2">{{ item }}</h1>
+    <p class="text-sm text-kec-grey mb-8">These dependencies show which programme, session, evidence, and report data may be affected by a Library change. Evidence is shown as counts; participant details are not displayed.</p>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {% for section in sections %}
+        <section class="bg-white border border-gray-200 rounded-xl p-5">
+            <div class="flex justify-between items-baseline gap-3 mb-3">
+                <h2 class="text-sm font-bold uppercase tracking-wide text-kec-charcoal">{{ section.title }}</h2>
+                <span class="text-xs text-kec-grey">{{ section.count }}</span>
+            </div>
+            {% if section.items %}
+            <ul class="space-y-2 text-sm text-kec-grey">
+                {% for row in section.items %}<li class="border-b border-gray-100 pb-2 last:border-0">{{ row }}</li>{% endfor %}
+            </ul>
+            {% else %}
+            <p class="text-sm text-kec-grey">{% if section.count %}{{ section.count }} record{{ section.count|pluralize }}; individual records are not shown.{% else %}No dependencies recorded.{% endif %}</p>
+            {% endif %}
+            {% if section.count > section.items|length %}<p class="text-xs text-kec-grey mt-3">Showing the first {{ section.items|length }} results.</p>{% endif %}
+        </section>
+        {% endfor %}
+
+        <section class="bg-gray-50 border border-gray-200 rounded-xl p-5">
+            <h2 class="text-sm font-bold uppercase tracking-wide text-kec-charcoal mb-3">Reports that may be affected</h2>
+            <ul class="space-y-2 text-sm text-kec-grey">{% for report in reports_affected %}<li>{{ report }}</li>{% endfor %}</ul>
+        </section>
+    </div>
+</div>
+{% endblock %}

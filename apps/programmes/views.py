@@ -448,7 +448,11 @@ def partner_report(request, org_id):
 def recognition_list(request):
     """Public recognition list of certified trainers, opt-in."""
     trainers = (
-        TierStatus.objects.filter(status="approved", tier__gte=4)
+        TierStatus.objects.filter(
+            status="approved",
+            tier__gte=4,
+            person__age_band="18_plus",
+        )
         .select_related("person", "programme")
         .order_by("programme__name", "person__full_name")
     )

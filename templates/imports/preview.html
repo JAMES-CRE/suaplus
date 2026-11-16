@@ -4,7 +4,7 @@
 {% block title %}Preview Import - Sua+ Hub{% endblock %}
 
 {% block content %}
-<div class="max-w-3xl mx-auto px-6 py-12 pb-32">
+<div class="max-w-3xl mx-auto px-4 sm:px-6 py-8 md:py-12 pb-20 md:pb-32">
 
     <a href="{% url 'import_preview' %}" class="text-sm text-kec-grey hover:text-kec-red mb-6 inline-block">
          Back to Map Columns
@@ -36,6 +36,7 @@
         {{ preview_rows|length }} row{{ preview_rows|length|pluralize }}
          {{ new_count }} will be added
          {{ matched_count }} matched
+        {% if conflict_count %} {{ conflict_count }} conflict{{ conflict_count|pluralize }}{% endif %}
         {% if error_count %} {{ error_count }} error{{ error_count|pluralize }}{% endif %}
     </p>
 
@@ -74,7 +75,7 @@
                         {% elif row.status == 'matched' %}
                             Existing person
                         {% else %}
-                            Missing or invalid email
+                            {{ row.note }}
                         {% endif %}
                     </td>
                 </tr>
@@ -103,13 +104,13 @@
 
     <hr class="border-gray-200 mb-10">
 
-    <div class="flex flex-col md:flex-row gap-4 justify-end">
+    <div class="flex flex-col sm:flex-row gap-4 sm:justify-end">
         <a href="{% url 'import_upload' %}" class="btn-secondary text-center">
             Cancel
         </a>
-        <form method="post" action="{% url 'import_commit' %}" class="inline">
+        <form method="post" action="{% url 'import_commit' %}" class="w-full sm:w-auto">
             {% csrf_token %}
-            <button type="submit" class="btn-primary">
+            <button type="submit" class="btn-primary w-full sm:w-auto">
                 Commit {{ new_count|add:matched_count }} record{{ new_count|add:matched_count|pluralize }} 
             </button>
         </form>
