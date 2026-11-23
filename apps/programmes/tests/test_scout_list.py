@@ -3,6 +3,7 @@ from django.contrib.auth import get_user_model
 from django.urls import reverse
 
 from apps.accounts.models import RoleAssignment, UserAccount
+from apps.accounts.tests.helpers import force_login_with_mfa
 from apps.programmes.models import Programme, TierStatus
 from apps.registry.models import OrgUnit, Person
 
@@ -56,7 +57,7 @@ def test_scout_requires_login(client):
 @pytest.mark.django_db
 def test_super_admin_sees_all(client, tier_status):
     user = _make_hub_user("admin@knust.edu.gh", role="super_admin", scope_type="all")
-    client.force_login(user)
+    force_login_with_mfa(client, user)
     response = client.get(reverse("scout_list"))
     assert response.status_code == 200
     assert b"Kwame Mensah" in response.content
@@ -80,7 +81,7 @@ def test_programme_owner_sees_only_own(client, tier_status, programme):
         scope_type="programme",
         scope_id=programme.id,
     )
-    client.force_login(user)
+    force_login_with_mfa(client, user)
     response = client.get(reverse("scout_list"))
     assert response.status_code == 200
     assert b"Kwame Mensah" in response.content
@@ -90,11 +91,10 @@ def test_programme_owner_sees_only_own(client, tier_status, programme):
 @pytest.mark.django_db
 def test_user_with_no_role_sees_nothing(client, tier_status):
     user = _make_hub_user("nobody@knust.edu.gh")
-    client.force_login(user)
+    force_login_with_mfa(client, user)
     response = client.get(reverse("scout_list"))
-    assert response.status_code == 200
+    assert response.status_code == 403
     assert b"Kwame Mensah" not in response.content
-    assert b"No eligible people" in response.content
 
 
 @pytest.mark.django_db
@@ -123,7 +123,7 @@ def test_recognition_list_only_includes_confirmed_adults(client, programme):
         role="super_admin",
         scope_type="all",
     )
-    client.force_login(user)
+    force_login_with_mfa(client, user)
 
     response = client.get(reverse("recognition_list"))
 

@@ -1,4 +1,5 @@
 """Programmes models programmes, competencies targeted, tier criteria, tiers."""
+from typing import ClassVar
 
 from django.conf import settings
 from django.db import models
@@ -10,7 +11,7 @@ from apps.registry.models import Organisation, Person
 class Programme(models.Model):
     """A training programme, e.g. 'Gemini for Education - Faculty ToT'."""
 
-    STATUS_CHOICES = [
+    STATUS_CHOICES: ClassVar[list] = [
         ("draft", "Draft"),
         ("active", "Active"),
         ("archived", "Archived"),
@@ -45,7 +46,7 @@ class Programme(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        ordering = ["name"]
+        ordering: ClassVar[list] = ["name"]
 
     def __str__(self):
         return self.name
@@ -65,7 +66,7 @@ class ProgrammeOwner(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        constraints = [
+        constraints: ClassVar[list] = [
             models.UniqueConstraint(
                 fields=["programme", "user"], name="uniq_programme_owner"
             ),
@@ -78,7 +79,7 @@ class ProgrammeOwner(models.Model):
 class Partner(models.Model):
     """External partner or funder for a programme (links to Organisation)."""
 
-    ROLE_CHOICES = [
+    ROLE_CHOICES: ClassVar[list] = [
         ("funder", "Funder"),
         ("partner", "Partner"),
         ("technology_provider", "Technology provider"),
@@ -90,8 +91,8 @@ class Partner(models.Model):
     role = models.CharField(max_length=20, choices=ROLE_CHOICES)
 
     class Meta:
-        ordering = ["organisation__name"]
-        constraints = [
+        ordering: ClassVar[list] = ["organisation__name"]
+        constraints: ClassVar[list] = [
             models.UniqueConstraint(
                 fields=["organisation", "role"], name="uniq_partner_role"
             ),
@@ -112,7 +113,7 @@ class ProgrammePartner(models.Model):
     )
 
     class Meta:
-        constraints = [
+        constraints: ClassVar[list] = [
             models.UniqueConstraint(
                 fields=["programme", "partner"], name="uniq_programme_partner"
             ),
@@ -136,8 +137,8 @@ class ProgrammeCompetency(models.Model):
     )
 
     class Meta:
-        ordering = ["programme", "competency"]
-        constraints = [
+        ordering: ClassVar[list] = ["programme", "competency"]
+        constraints: ClassVar[list] = [
             models.UniqueConstraint(
                 fields=["programme", "competency"], name="uniq_programme_competency"
             ),
@@ -150,7 +151,7 @@ class ProgrammeCompetency(models.Model):
 class TierCriterion(models.Model):
     """Rules that define a trainer tier for a programme."""
 
-    TIER_CHOICES = [
+    TIER_CHOICES: ClassVar[list] = [
         (1, "Explorer"),
         (2, "Practitioner"),
         (3, "Associate Trainer"),
@@ -158,7 +159,7 @@ class TierCriterion(models.Model):
         (5, "Master Trainer"),
     ]
 
-    RULE_TYPE_CHOICES = [
+    RULE_TYPE_CHOICES: ClassVar[list] = [
         ("min_level", "Minimum competency level"),
         ("required_credential", "Required credential"),
         ("min_sessions", "Minimum sessions led"),
@@ -176,7 +177,7 @@ class TierCriterion(models.Model):
     )
 
     class Meta:
-        ordering = ["programme", "tier", "rule_type"]
+        ordering: ClassVar[list] = ["programme", "tier", "rule_type"]
 
     def __str__(self):
         return f"{self.programme} - tier {self.tier} - {self.rule_type}"
@@ -185,7 +186,8 @@ class TierCriterion(models.Model):
 class TierStatus(models.Model):
     """A person's tier status within a programme."""
 
-    STATUS_CHOICES = [
+    STATUS_CHOICES: ClassVar[list] = [
+        ("ineligible", "Ineligible"),
         ("eligible", "Eligible"),
         ("nominated", "Nominated"),
         ("approved", "Approved"),
@@ -216,12 +218,12 @@ class TierStatus(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        constraints = [
+        constraints: ClassVar[list] = [
             models.UniqueConstraint(
                 fields=["person", "programme", "tier"], name="uniq_tier_status"
             ),
         ]
-        indexes = [
+        indexes: ClassVar[list] = [
             models.Index(fields=["programme", "tier", "status"]),
         ]
 
@@ -230,7 +232,7 @@ class TierStatus(models.Model):
 
     # --- ADD THESE PROPERTIES INSIDE THE CLASS ---
 
-    TIER_LABELS = ["Explorer", "Practitioner", "Associate", "Certified", "Master"]
+    TIER_LABELS: ClassVar[list] = ["Explorer", "Practitioner", "Associate", "Certified", "Master"]
 
     @property
     def steps(self):
@@ -253,7 +255,7 @@ class TierStatus(models.Model):
 class Nomination(models.Model):
     """A nomination for a trainer tier."""
 
-    DECISION_CHOICES = [
+    DECISION_CHOICES: ClassVar[list] = [
         ("pending", "Pending"),
         ("approved", "Approved"),
         ("rejected", "Rejected"),
@@ -286,7 +288,7 @@ class Nomination(models.Model):
     decided_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
-        ordering = ["-created_at"]
+        ordering: ClassVar[list] = ["-created_at"]
 
     def __str__(self):
         return f"Nomination: {self.person.full_name} → tier {self.tier}"

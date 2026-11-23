@@ -1,4 +1,5 @@
 """Passport models - evidence, credentials, self-assessment, corrections."""
+from typing import ClassVar
 
 from django.conf import settings
 from django.db import models
@@ -15,22 +16,22 @@ from apps.sessions.models import Session
 class Credential(models.Model):
     """An external certification or KNUST badge held by a person."""
 
-    KIND_CHOICES = [
+    KIND_CHOICES: ClassVar[list] = [
         ("knust_badge", "KNUST badge"),
         ("external", "External certification"),
     ]
-    SOURCE_CHOICES = [
+    SOURCE_CHOICES: ClassVar[list] = [
         ("staff_recorded", "Recorded by staff"),
         ("self_submitted", "Self-submitted"),
     ]
-    REVIEW_STATUS_CHOICES = [
+    REVIEW_STATUS_CHOICES: ClassVar[list] = [
         ("submitted", "Submitted"),
         ("in_review", "In review"),
         ("approved", "Approved"),
         ("returned", "Returned for information"),
         ("rejected", "Rejected"),
     ]
-    STATUS_CHOICES = [
+    STATUS_CHOICES: ClassVar[list] = [
         ("valid", "Valid"),
         ("expired", "Expired"),
         ("revoked", "Revoked"),
@@ -77,13 +78,13 @@ class Credential(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        ordering = ["-created_at"]
-        indexes = [
+        ordering: ClassVar[list] = ["-created_at"]
+        indexes: ClassVar[list] = [
             models.Index(fields=["person", "status"]),
             models.Index(fields=["review_status", "created_at"]),
             models.Index(fields=["issuer", "credential_id"]),
         ]
-        constraints = [
+        constraints: ClassVar[list] = [
             models.UniqueConstraint(
                 fields=["issuer", "credential_id"],
                 condition=~models.Q(credential_id=""),
@@ -114,8 +115,8 @@ class CredentialReview(models.Model):
     at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        ordering = ["-at"]
-        indexes = [models.Index(fields=["credential", "at"])]
+        ordering: ClassVar[list] = ["-at"]
+        indexes: ClassVar[list] = [models.Index(fields=["credential", "at"])]
 
     def __str__(self):
         return f"{self.credential} - {self.from_status} → {self.to_status}"
@@ -124,7 +125,7 @@ class CredentialReview(models.Model):
 class Evidence(models.Model):
     """The core record: one row per person × competency × level × evidence type."""
 
-    TYPE_CHOICES = [
+    TYPE_CHOICES: ClassVar[list] = [
         ("self", "Self-assessment"),
         ("task", "Workshop task/quiz"),
         ("assessor", "Facilitator/assessor"),
@@ -132,13 +133,13 @@ class Evidence(models.Model):
         ("external", "External certification"),
         ("attendance", "Workshop attendance"),
     ]
-    SOURCE_TYPE_CHOICES = [
+    SOURCE_TYPE_CHOICES: ClassVar[list] = [
         ("", "None"),
         ("attendance", "Attendance"),
         ("credential", "Credential"),
         ("self_assessment", "Self-assessment"),
     ]
-    STATUS_CHOICES = [
+    STATUS_CHOICES: ClassVar[list] = [
         ("valid", "Valid"),
         ("expired", "Expired"),
         ("revoked", "Revoked"),
@@ -188,8 +189,8 @@ class Evidence(models.Model):
     )
 
     class Meta:
-        ordering = ["-assessed_at"]
-        indexes = [
+        ordering: ClassVar[list] = ["-assessed_at"]
+        indexes: ClassVar[list] = [
             models.Index(fields=["person", "competency", "status"]),
             models.Index(fields=["competency", "type"]),
             models.Index(fields=["credential"]),
@@ -201,9 +202,9 @@ class Evidence(models.Model):
                 condition=models.Q(is_expired=False),
             ),
         ]
-        constraints = [
+        constraints: ClassVar[list] = [
             models.CheckConstraint(
-                check=(
+                condition=(
                     models.Q(type="self", source_type="self_assessment")
                     | models.Q(type="external", source_type="credential")
                     | models.Q(type="artefact", source_type="credential")
@@ -214,7 +215,38 @@ class Evidence(models.Model):
                 ),
                 name="evidence_source_consistent",
             ),
+            models.UniqueConstraint(
+                fields=["source_id", "competency"],
+                condition=models.Q(type="attendance", source_type="attendance", source_id__isnull=False),
+                name="uniq_attendance_competency_evidence",
+            ),
+            models.CheckConstraint(
+                condition=~models.Q(type="attendance", status="valid")
+                | models.Q(source_type="attendance", source_id__isnull=False),
+                name="valid_attendance_evidence_has_source",
+            ),
         ]
+
+    def clean(self):
+        from django.core.exceptions import ValidationError
+
+        from apps.sessions.models import Attendance
+
+        super().clean()
+        if self.type != "attendance" or self.status != "valid":
+            return
+        attendance = Attendance.objects.filter(pk=self.source_id).first() if self.source_id is not None else None
+        if self.source_type != "attendance" or attendance is None or attendance.status != "completed":
+            raise ValidationError("Attendance evidence requires a completed source attendance record.")
+        if self.person_id != attendance.person_id or self.session_id != attendance.session_id:
+            raise ValidationError("Evidence person and session must match its source attendance.")
+        if self.level_id and self.competency_id and (
+            self.level.ordinal != 1 or self.level.framework_id != self.competency.framework_id
+            or not self.competency.framework.is_knust
+        ):
+            raise ValidationError({"level": "Workshop attendance supports KNUST level 1 only."})
+        if self.credential_id is not None:
+            raise ValidationError({"credential": "Attendance evidence must not use a credential as its source."})
 
     def __str__(self):
         return (
@@ -226,7 +258,7 @@ class Evidence(models.Model):
 class SelfAssessment(models.Model):
     """A baseline self-assessment submission."""
 
-    STATUS_CHOICES = [
+    STATUS_CHOICES: ClassVar[list] = [
         ("started", "Started"),
         ("submitted", "Submitted"),
     ]
@@ -249,8 +281,8 @@ class SelfAssessment(models.Model):
     submitted_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
-        ordering = ["-started_at"]
-        indexes = [
+        ordering: ClassVar[list] = ["-started_at"]
+        indexes: ClassVar[list] = [
             models.Index(fields=["person", "status"]),
             models.Index(fields=["template"]),
         ]
@@ -284,8 +316,8 @@ class CorrectionRequest(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        ordering = ["-created_at"]
-        indexes = [
+        ordering: ClassVar[list] = ["-created_at"]
+        indexes: ClassVar[list] = [
             models.Index(fields=["person"]),
             models.Index(fields=["session"]),
         ]
@@ -306,7 +338,7 @@ class PassportStampView(models.Model):
     first_seen_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        constraints = [
+        constraints: ClassVar[list] = [
             models.UniqueConstraint(
                 fields=["person", "attendance"], name="uniq_passport_stamp_view"
             )
@@ -316,7 +348,7 @@ class PassportStampView(models.Model):
 class LearningGoal(models.Model):
     """A personal development goal set by a passport holder."""
 
-    STATUS_CHOICES = [
+    STATUS_CHOICES: ClassVar[list] = [
         ("active", "Active"),
         ("completed", "Completed"),
         ("archived", "Archived"),
@@ -332,7 +364,33 @@ class LearningGoal(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        ordering = ["status", "target_date", "-created_at"]
+        ordering: ClassVar[list] = ["status", "target_date", "-created_at"]
 
     def __str__(self):
         return f"{self.person.full_name}: {self.title}"
+
+
+class AssessmentLink(models.Model):
+    """Short-lived single-purpose SAS token, never a passport bearer token."""
+    person = models.ForeignKey(Person, on_delete=models.CASCADE, related_name='assessment_links')
+    token_hash = models.CharField(max_length=64, unique=True)
+    expires_at = models.DateTimeField()
+    consumed_at = models.DateTimeField(null=True, blank=True)
+    profile_confirmed_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+
+class InternalAssessment(models.Model):
+    """Immutable assessor provenance for an internal workshop award."""
+    attendance = models.ForeignKey('training.Attendance', on_delete=models.PROTECT, related_name='internal_assessments')
+    competency = models.ForeignKey(Competency, on_delete=models.PROTECT)
+    level = models.ForeignKey(Level, on_delete=models.PROTECT)
+    evidence_type = models.CharField(max_length=12, choices=[('task', 'Workshop task'), ('assessor', 'Assessor')])
+    assessor = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)
+    note = models.TextField()
+    evidence = models.OneToOneField(Evidence, on_delete=models.PROTECT)
+    credential = models.OneToOneField(Credential, on_delete=models.PROTECT)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=['attendance', 'competency', 'evidence_type'], name='uniq_internal_source_assessment')]

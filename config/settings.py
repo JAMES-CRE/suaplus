@@ -2,11 +2,11 @@
 Django settings for config project.
 """
 
-from pathlib import Path
-import environ
 import os
-from django.core.exceptions import ImproperlyConfigured
+from pathlib import Path
 
+import environ
+from django.core.exceptions import ImproperlyConfigured
 
 # 1. Environment & Base Directory 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -19,9 +19,9 @@ SECRET_KEY = env(
     default="django-insecure-nmjyt=n)#=bd@f#jsvv!7ougn8ao(&j3@jytm9&t_5=*)z2ni)",
 )
 DEBUG = env.bool("DJANGO_DEBUG", default=True)
-ALLOWED_HOSTS = env.list("DJANGO_ALLOWED_HOSTS", default=["localhost", "127.0.0.1","testserver","10.42.88.75"])
-
-if not DEBUG and SECRET_KEY.startswith("django-insecure-"):
+#ALLOWED_HOSTS = env.list("DJANGO_ALLOWED_HOSTS", default=["localhost", "127.0.0.1","testserver","10.42.88.75"])
+ALLOWED_HOSTS = ['*']
+if not DEBUG and (len(SECRET_KEY) < 50 or SECRET_KEY.startswith(("django-insecure-", "replace-"))):
     raise ImproperlyConfigured(
         "DJANGO_SECRET_KEY must be set to a secure value when DJANGO_DEBUG is false."
     )
@@ -87,6 +87,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
@@ -114,6 +115,7 @@ TEMPLATES = [
                 "django.template.context_processors.request",
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
+                "apps.accounts.context_processors.navigation",
             ],
         },
     },
@@ -205,6 +207,11 @@ USE_TZ = True
 
 STATIC_URL = "static/"
 STATICFILES_DIRS = [BASE_DIR / "static"]
+STATIC_ROOT = BASE_DIR / "staticfiles"
+STORAGES = {
+    "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
+    "staticfiles": {"BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage"},
+}
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
@@ -222,6 +229,7 @@ CELERY_RESULT_SERIALIZER = "json"
 CELERY_TIMEZONE = "Africa/Accra"
 
 CELERY_BEAT_SCHEDULE = {
+    "worker-heartbeat": {"task": "apps.core.tasks.worker_heartbeat", "schedule": 60.0},
     "run-tier-engine-nightly": {
         "task": "apps.programmes.tasks.run_tier_engine_task",
         "schedule": 60.0 * 60.0 * 24.0,
@@ -272,3 +280,30 @@ if not DEBUG:
     SECURE_HSTS_INCLUDE_SUBDOMAINS = env.bool(
         "DJANGO_SECURE_HSTS_INCLUDE_SUBDOMAINS", default=False
     )
+
+
+CACHE_URL = env("CACHE_URL", default="")
+if CACHE_URL:
+    CACHES["default"] = {"BACKEND": "django.core.cache.backends.redis.RedisCache", "LOCATION": CACHE_URL}
+elif not DEBUG and not env.bool("ALLOW_LOCAL_CACHE", default=False):
+    raise ImproperlyConfigured("Configure CACHE_URL for shared production rate limits and worker health.")
+WORKER_HEARTBEAT_REQUIRED = env.bool("WORKER_HEARTBEAT_REQUIRED", default=not DEBUG)
+SAS_LINK_HOURS = env.int("SAS_LINK_HOURS", default=24)
+BADGE_PRIVATE_KEY = ""
+BADGE_PUBLIC_KEY = ""
+BADGE_KEY_ID = env("BADGE_KEY_ID", default="current")
+for setting_name, path_name in (("BADGE_PRIVATE_KEY", "BADGE_PRIVATE_KEY_FILE"), ("BADGE_PUBLIC_KEY", "BADGE_PUBLIC_KEY_FILE")):
+    key_path = env(path_name, default="")
+    if key_path:
+        globals()[setting_name] = Path(key_path).read_text(encoding="utf-8")
+if bool(BADGE_PRIVATE_KEY) != bool(BADGE_PUBLIC_KEY):
+    raise ImproperlyConfigured("Configure both badge keys or leave both disabled.")
+if env.bool("TRUST_PROXY_TLS", default=False):
+    SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+SECURE_REDIRECT_EXEMPT = [r"^health/$", r"^live/$", r"^ready/$"]
+LOGGING = {
+    "version": 1, "disable_existing_loggers": False,
+    "filters": {"redact_tokens": {"()": "apps.core.logging.RedactBearerPaths"}},
+    "handlers": {"console": {"class": "logging.StreamHandler", "filters": ["redact_tokens"]}},
+    "root": {"handlers": ["console"], "level": env("LOG_LEVEL", default="INFO")},
+}

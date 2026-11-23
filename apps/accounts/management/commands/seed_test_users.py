@@ -14,7 +14,6 @@ from apps.accounts.models import RoleAssignment, UserAccount
 from apps.programmes.models import Programme
 from apps.registry.models import OrgUnit, Person
 
-
 TEST_USERS = [
     # (username, full_name, role, scope_type, scope_source)
     # scope_source is either 'all', 'unit', 'programme', or 'organisation'
@@ -70,13 +69,19 @@ class Command(BaseCommand):
             )
             if created:
                 user.set_password("testpass123")
-                user.save()
+            if user.email != email:
+                user.email = email
+            user.save()
 
             # 3. Create UserAccount
             account, _ = UserAccount.objects.get_or_create(
                 user=user,
                 defaults={"person": person, "auth_method": "password"},
             )
+            if account.person_id != person.id:
+                account.person = person
+                account.auth_method = "password"
+                account.save(update_fields=["person", "auth_method", "updated_at"])
 
             # 4. Create RoleAssignment if role is set
             if role:
@@ -86,11 +91,11 @@ class Command(BaseCommand):
                 elif scope_source == "unit":
                     scope_id = college.id
 
-                RoleAssignment.objects.get_or_create(
+                RoleAssignment.objects.update_or_create(
                     user_account=account,
                     role=role,
                     scope_type=scope_type,
-                    scope_id=scope_id,
+                    defaults={"scope_id": scope_id},
                 )
 
             status = "created" if created else "exists"
@@ -105,4 +110,3 @@ class Command(BaseCommand):
         self.stdout.write(self.style.SUCCESS("All test users ready."))
         self.stdout.write("Password for all: testpass123")
         self.stdout.write("=" * 60)
-        

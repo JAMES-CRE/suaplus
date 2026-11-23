@@ -3,23 +3,30 @@ module.exports = {
     content: [
         "./templates/**/*.html",
         "./apps/**/templates/**/*.html",
+        "./static/js/**/*.js",
+        "!./static/js/**/*.min.js",
     ],
     theme: {
         extend: {
             colors: {
                 kec: {
-                    red: '#D1121C',
+                    red: '#134E40', // Legacy primary class name
+                    green: '#134E40',
+                    forest: '#0B3028',
+                    gold: '#D5B46C',
+                    ivory: '#F6F5EF',
+                    line: '#DDDFD7',
+                    danger: '#B42332',
                     white: '#FFFFFF',
-                    charcoal: '#1A1A1A',
-                    grey: '#6B7280', // Only for secondary text
+                    charcoal: '#183229',
+                    grey: '#66726A', // Only for secondary text
                 }
             },
             fontFamily: {
                 sans: ['Inter', 'system-ui', 'sans-serif'],
-                syncopate: ['Syncopate', 'system-ui', 'sans-serif']
             },
             borderRadius: {
-                'kec': '6px',
+                'kec': '12px',
             }
         },
     },

@@ -1,16 +1,25 @@
 import datetime
+
 from django.core.management.base import BaseCommand
 from django.db import transaction
-from django.utils import timezone
 
+from apps.core.models import AcademicPeriod
 from apps.library.models import (
-    Framework, Domain, Competency, Level, CertificationCatalogue, CertificationCompetency
+    CertificationCatalogue,
+    CertificationCompetency,
+    Competency,
+    Domain,
+    Framework,
+    Level,
 )
 from apps.programmes.models import (
-    Programme, ProgrammeCompetency, TierCriterion, Partner, Organisation
+    Organisation,
+    Programme,
+    ProgrammeCompetency,
+    TierCriterion,
 )
-from apps.core.models import AcademicPeriod
 from apps.sessions.models import SurveyTemplate
+
 
 class Command(BaseCommand):
     help = "Seeds the database with the foundational data from SRS Annex A"
@@ -104,10 +113,10 @@ class Command(BaseCommand):
             self.stdout.write("Created 28 Competencies")
 
             # 5. Create Organisations
-            knust_org, _ = Organisation.objects.get_or_create(
+            _knust_org, _ = Organisation.objects.get_or_create(
                 name="KNUST E-Learning Centre", defaults={"type": "university"}
             )
-            google_org, _ = Organisation.objects.get_or_create(
+            _google_org, _ = Organisation.objects.get_or_create(
                 name="Google for Education", defaults={"type": "company"}
             )
             self.stdout.write("Created Organisations")

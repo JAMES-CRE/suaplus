@@ -1,0 +1,26 @@
+﻿<div id="competency-profile" class="passport-section">
+    <h2 class="text-lg font-semibold mb-2">Your competency profile</h2>
+    <p class="text-sm text-kec-grey mb-5">Average levels out of 5. Each bar uses the strongest record for each skill in that category, so a self-rating never replaces verified evidence.</p>
+    {% for domain, data in domains.items %}
+    <section class="{% if not forloop.last %}mb-6 pb-6 border-b border-gray-100{% endif %}" aria-labelledby="domain-{{ domain.id }}">
+        <h3 id="domain-{{ domain.id }}" class="text-base font-semibold mb-3">{{ domain.name }}</h3>
+        <div class="space-y-3">
+            <div>
+                <div class="flex items-center justify-between gap-3 text-sm mb-1"><span class="text-kec-grey">Self-rated &middot; {{ data.self_count }} skill{{ data.self_count|pluralize }}</span><span class="font-semibold text-kec-charcoal">{% if data.self_count %}{{ data.self_percent }}%{% else %}Not recorded{% endif %}</span></div>
+                <div class="h-2.5 bg-gray-200 rounded-full overflow-hidden" role="progressbar" aria-label="{{ domain.name }} self-rated average" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{ data.self_percent }}" aria-valuetext="{% if data.self_count %}{{ data.self_percent }} percent of the five-level scale{% else %}No self-rated evidence recorded{% endif %}"><div class="h-full bg-slate-500 rounded-full" style="width: {{ data.self_percent }}%"></div></div>
+            </div>
+            <div>
+                <div class="flex items-center justify-between gap-3 text-sm mb-1"><span class="text-kec-grey">Verified evidence &middot; {{ data.verified_count }} skill{{ data.verified_count|pluralize }}</span><span class="font-semibold text-kec-charcoal">{% if data.verified_count %}{{ data.verified_percent }}%{% else %}Not recorded{% endif %}</span></div>
+                <div class="h-2.5 bg-gray-200 rounded-full overflow-hidden" role="progressbar" aria-label="{{ domain.name }} verified evidence average" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{ data.verified_percent }}" aria-valuetext="{% if data.verified_count %}{{ data.verified_percent }} percent of the five-level scale{% else %}No verified evidence recorded{% endif %}"><div class="h-full bg-kec-red rounded-full" style="width: {{ data.verified_percent }}%"></div></div>
+            </div>
+        </div>
+        <details class="mt-3 text-sm"><summary class="cursor-pointer font-semibold text-kec-charcoal py-2">View skill evidence</summary>
+            <ul class="mt-2 space-y-3 border-t border-gray-100 pt-3">
+                {% for evidence in data.competencies %}<li class="flex flex-wrap items-center justify-between gap-2"><span>{{ evidence.competency.title }} <span class="text-kec-grey">({{ evidence.competency.code }})</span></span><span class="text-kec-grey">Level {{ evidence.level.ordinal }} &middot; {{ evidence.get_type_display }}</span></li>{% endfor %}
+            </ul>
+        </details>
+    </section>
+    {% empty %}
+    <p class="text-sm text-kec-grey">Your skills will appear here as you complete assessments and record training evidence.</p>
+    {% endfor %}
+</div>

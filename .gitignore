@@ -14,3 +14,8 @@ Thumbs.db
 .ruff_cache/
 node_modules/
 celerybeat-schedule*
+.env.deploy
+.coverage*
+coverage*.json
+*.pem
+*.key

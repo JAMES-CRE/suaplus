@@ -1,3 +1,5 @@
+from typing import ClassVar
+
 from django.contrib import admin
 
 from .models import (
@@ -33,7 +35,7 @@ class ProgrammeAdmin(admin.ModelAdmin):
     list_display = ("name", "status", "is_template", "created_at")
     list_filter = ("status", "is_template")
     search_fields = ("name", "description")
-    inlines = [
+    inlines: ClassVar[list] = [
         ProgrammeCompetencyInline,
         ProgrammePartnerInline,
         TierCriterionInline,

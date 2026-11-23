@@ -1,6 +1,6 @@
 """Sessions models  workshops, facilitation, attendance, surveys, imports."""
-
 import secrets
+from typing import ClassVar
 
 from django.conf import settings
 from django.db import models
@@ -19,13 +19,13 @@ def generate_session_code():
 class Session(models.Model):
     """A single dated workshop instance."""
 
-    MODE_CHOICES = [
+    MODE_CHOICES: ClassVar[list] = [
         ("in_person", "In person"),
         ("hybrid", "Hybrid"),
         ("online", "Online"),
     ]
 
-    STATUS_CHOICES = [
+    STATUS_CHOICES: ClassVar[list] = [
         ("scheduled", "Scheduled"),
         ("open", "Open"),
         ("closed", "Closed"),
@@ -60,9 +60,20 @@ class Session(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
+    def clean(self):
+        from django.core.exceptions import ValidationError
+
+        super().clean()
+        if self.pk:
+            original = type(self).objects.filter(pk=self.pk).values_list("programme_id", flat=True).first()
+            if original is not None and original != self.programme_id:
+                raise ValidationError({"programme": "Create a new session to use a different programme."})
+        if self.start_at and self.end_at and self.end_at <= self.start_at:
+            raise ValidationError("Session end must be after its start.")
+
     class Meta:
-        ordering = ["-start_at"]
-        indexes = [
+        ordering: ClassVar[list] = ["-start_at"]
+        indexes: ClassVar[list] = [
             models.Index(fields=["programme", "start_at"]),
             models.Index(fields=["start_at"]),
             models.Index(fields=["host_unit"]),
@@ -82,8 +93,25 @@ class SessionCompetency(models.Model):
         Competency, on_delete=models.PROTECT, related_name="session_coverages"
     )
 
+    def clean(self):
+        from django.core.exceptions import ValidationError
+
+        super().clean()
+        if not self.session_id or not self.competency_id:
+            return
+        previous = type(self).objects.filter(pk=self.pk).values("session_id", "competency_id").first() if self.pk else None
+        unchanged = previous == {"session_id": self.session_id, "competency_id": self.competency_id}
+        if unchanged:
+            return
+        if self.session.attendances.exists():
+            raise ValidationError("Competency mappings are locked after the first check-in.")
+        if not self.competency.framework.is_knust or not self.session.programme.competency_targets.filter(competency_id=self.competency_id).exists():
+            raise ValidationError({"competency": "Choose a KNUST competency mapped to this programme."})
+        if self.competency.status not in {"active", "published"}:
+            raise ValidationError({"competency": "Choose an active or published competency."})
+
     class Meta:
-        constraints = [
+        constraints: ClassVar[list] = [
             models.UniqueConstraint(
                 fields=["session", "competency"], name="uniq_session_competency"
             ),
@@ -104,7 +132,7 @@ class SessionPartner(models.Model):
     )
 
     class Meta:
-        constraints = [
+        constraints: ClassVar[list] = [
             models.UniqueConstraint(
                 fields=["session", "partner"], name="uniq_session_partner"
             ),
@@ -117,7 +145,7 @@ class SessionPartner(models.Model):
 class Facilitation(models.Model):
     """Who facilitated a session."""
 
-    ROLE_CHOICES = [
+    ROLE_CHOICES: ClassVar[list] = [
         ("lead", "Lead facilitator"),
         ("co_facilitator", "Co-facilitator"),
         ("associate", "Associate trainer"),
@@ -136,12 +164,12 @@ class Facilitation(models.Model):
     external_org = models.CharField(max_length=200, blank=True, default="")
 
     class Meta:
-        constraints = [
+        constraints: ClassVar[list] = [
             models.UniqueConstraint(
                 fields=["session", "person"], name="uniq_facilitation"
             ),
         ]
-        indexes = [models.Index(fields=["person"])]
+        indexes: ClassVar[list] = [models.Index(fields=["person"])]
 
     def __str__(self):
         return f"{self.person.full_name} - {self.get_role_display()} - {self.session}"
@@ -162,7 +190,7 @@ class ImportMappingTemplate(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        ordering = ["name"]
+        ordering: ClassVar[list] = ["name"]
 
     def __str__(self):
         return self.name
@@ -171,7 +199,7 @@ class ImportMappingTemplate(models.Model):
 class ImportBatch(models.Model):
     """Record of an uploaded spreadsheet."""
 
-    STATUS_CHOICES = [
+    STATUS_CHOICES: ClassVar[list] = [
         ("preview", "Preview"),
         ("committed", "Committed"),
         ("undone", "Undone"),
@@ -205,10 +233,12 @@ class ImportBatch(models.Model):
     )
     created_at = models.DateTimeField(auto_now_add=True)
     undone_at = models.DateTimeField(null=True, blank=True)
+    undone_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT, related_name="undone_imports")
+    undo_reason = models.TextField(blank=True, default="")
 
     class Meta:
-        ordering = ["-created_at"]
-        indexes = [
+        ordering: ClassVar[list] = ["-created_at"]
+        indexes: ClassVar[list] = [
             models.Index(fields=["session"]),
             models.Index(fields=["created_by"]),
         ]
@@ -220,14 +250,14 @@ class ImportBatch(models.Model):
 class Attendance(models.Model):
     """A person's attendance at a session."""
 
-    METHOD_CHOICES = [
+    METHOD_CHOICES: ClassVar[list] = [
         ("qr", "QR code"),
         ("code", "Session code"),
         ("import", "Spreadsheet import"),
         ("manual", "Manual"),
     ]
 
-    STATUS_CHOICES = [
+    STATUS_CHOICES: ClassVar[list] = [
         ("completed", "Completed"),
         ("partial", "Partial"),
         ("absent", "Absent"),
@@ -257,12 +287,12 @@ class Attendance(models.Model):
     )
 
     class Meta:
-        constraints = [
+        constraints: ClassVar[list] = [
             models.UniqueConstraint(
                 fields=["session", "person"], name="uniq_one_checkin_per_session"
             ),
             models.CheckConstraint(
-                check=(
+                condition=(
                     models.Q(
                         status="completed",
                         check_in_at__isnull=False,
@@ -278,7 +308,7 @@ class Attendance(models.Model):
                 name="attendance_times_consistent",
             ),
         ]
-        indexes = [
+        indexes: ClassVar[list] = [
             models.Index(fields=["person", "status"]),
             models.Index(fields=["session", "status"]),
             models.Index(fields=["import_batch"]),
@@ -294,7 +324,7 @@ class Attendance(models.Model):
 class SurveyResponse(models.Model):
     """Exit / pre / follow-up survey answers."""
 
-    TYPE_CHOICES = [
+    TYPE_CHOICES: ClassVar[list] = [
         ("pre", "Pre-session"),
         ("exit", "Exit"),
         ("follow_up", "Follow-up (90 days)"),
@@ -315,13 +345,13 @@ class SurveyResponse(models.Model):
     submitted_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        ordering = ["-submitted_at"]
-        constraints = [
+        ordering: ClassVar[list] = ["-submitted_at"]
+        constraints: ClassVar[list] = [
             models.UniqueConstraint(
                 fields=["attendance", "type"], name="uniq_response_per_type"
             ),
             models.CheckConstraint(
-                check=models.Q(csat__isnull=True)
+                condition=models.Q(csat__isnull=True)
                 | models.Q(csat__gte=1, csat__lte=5),
                 name="csat_1_to_5",
             ),

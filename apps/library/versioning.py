@@ -4,9 +4,6 @@ from django.db import transaction
 from django.db.models import Max
 
 from apps.library.models import (
-    Competency,
-    Crosswalk,
-    Domain,
     EvidenceRule,
     Framework,
     LibraryVersion,

@@ -1,10 +1,9 @@
 """KNUST-specific allauth social-login checks."""
 
-from django.conf import settings
-from django.http import HttpResponseForbidden
-
 from allauth.core.exceptions import ImmediateHttpResponse
 from allauth.socialaccount.adapter import DefaultSocialAccountAdapter
+from django.conf import settings
+from django.http import HttpResponseForbidden
 
 
 class KnustSocialAccountAdapter(DefaultSocialAccountAdapter):

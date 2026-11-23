@@ -7,11 +7,11 @@ from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 
-from apps.accounts.permissions import is_super_admin
+from apps.accounts.permissions import can
 from apps.library.models import (
+    CertificationCatalogue,
     Competency,
     CompetencyDraft,
-    CertificationCatalogue,
     Crosswalk,
     CrosswalkDraft,
     Domain,
@@ -24,22 +24,21 @@ from apps.library.models import (
     LevelDraft,
     SurveyTemplate,
 )
+from apps.library.transfer import (
+    IMPORTABLE_SHEETS,
+    SCHEMAS,
+    export_csv,
+    export_xlsx,
+    parse_upload,
+)
 from apps.library.versioning import record_library_publication
 from apps.passport.models import Credential, Evidence, SelfAssessment
 from apps.programmes.models import ProgrammeCompetency
 from apps.sessions.models import SessionCompetency, SurveyResponse
-from apps.library.transfer import IMPORTABLE_SHEETS, SCHEMAS, export_csv, export_xlsx, parse_upload
 
 
 def _can_edit_library(user):
-    """Check if user is a super admin or library curator."""
-    if is_super_admin(user):
-        return True
-    try:
-        roles = user.hub_account.roles.values_list("role", flat=True)
-        return "library_curator" in roles
-    except AttributeError:
-        return False
+    return can(user, "manage_library")
 
 
 @login_required
@@ -195,9 +194,6 @@ def _create_import_drafts(tables, user, reason):
                         framework = Framework.objects.filter(code=code).first()
                         if framework is None and key in seen_codes:
                             raise ValueError("duplicate framework code in this import.")
-                        existing_draft = FrameworkDraft.objects.filter(
-                            code=code, status="draft"
-                        ).first()
                         FrameworkDraft.objects.create(
                             framework=framework,
                             code=code,

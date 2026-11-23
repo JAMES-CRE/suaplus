@@ -1,15 +1,19 @@
-from django.contrib import admin
-from django.contrib import messages
+from typing import ClassVar
+
+from django.contrib import admin, messages
+
+from apps.accounts.permissions import is_super_admin
+from apps.audit.services import log_event
 
 from .models import (
     Consent,
+    IdentityConflict,
     Organisation,
     OrgUnit,
     PassportToken,
     Person,
     UnitHeadcount,
 )
-from apps.audit.services import log_event
 
 
 @admin.action(description="Merge selected person into first selected")
@@ -19,6 +23,9 @@ def merge_people(modeladmin, request, queryset):
     Reassigns attendances, evidence and credentials to the target, then
     marks the other records as merged (reversible via merged_into).
     """
+    if not is_super_admin(request.user):
+        messages.error(request, "Only a Super Admin can reconcile duplicate person records.")
+        return
     if queryset.count() < 2:
         messages.error(
             request,
@@ -73,11 +80,11 @@ class PersonAdmin(admin.ModelAdmin):
     list_display = ("full_name", "affiliation", "email", "unit", "age_band")
     list_filter = ("affiliation", "category", "age_band")
     search_fields = ("full_name", "email", "staff_or_student_no")
-    actions = [merge_people]
+    actions: ClassVar[list] = [merge_people]
 
     def change_view(self, request, object_id, form_url="", extra_context=None):
         """Log every time an admin opens a person's record."""
-        person = self.model.objects.filter(id=object_id).first()
+        person = self.get_queryset(request).filter(id=object_id).first()
         if person:
             log_event(
                 request=request,
@@ -98,6 +105,23 @@ class ConsentAdmin(admin.ModelAdmin):
 @admin.register(PassportToken)
 class PassportTokenAdmin(admin.ModelAdmin):
     list_display = ("person", "created_at", "revoked_at", "last_used_at")
+
+
+
+@admin.register(IdentityConflict)
+class IdentityConflictAdmin(admin.ModelAdmin):
+    list_display = ("created_at", "source", "session", "status", "reason")
+    list_filter = ("source", "status")
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
 
 
 @admin.register(UnitHeadcount)

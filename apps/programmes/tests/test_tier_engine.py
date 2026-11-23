@@ -67,6 +67,7 @@ def test_practitioner_criterion_not_met(person, programme, competency, framework
 
 @pytest.mark.django_db
 def test_practitioner_criterion_met(person, programme, competency, framework):
+    ProgrammeCompetency.objects.create(programme=programme, competency=competency, target_level=2)
     level2 = Level.objects.get(framework=framework, ordinal=2)
     Evidence.objects.create(
         person=person,

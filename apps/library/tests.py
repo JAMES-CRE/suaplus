@@ -1,20 +1,17 @@
-from django.test import TestCase
 
 # Create your tests here.
 import pytest
-from datetime import date
-from django.core.files.uploadedfile import SimpleUploadedFile
-
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.urls import reverse
 
 from apps.accounts.models import RoleAssignment, UserAccount
 from apps.library.models import (
-    Competency,
-    CompetencyDraft,
     CertificationCatalogue,
     CertificationCompetency,
+    Competency,
+    CompetencyDraft,
     Crosswalk,
     CrosswalkDraft,
     Domain,
@@ -23,9 +20,9 @@ from apps.library.models import (
     EvidenceRuleDraft,
     Framework,
     FrameworkDraft,
-    LibraryVersion,
     Level,
     LevelDraft,
+    LibraryVersion,
     SurveyTemplate,
 )
 from apps.library.versioning import framework_version_label

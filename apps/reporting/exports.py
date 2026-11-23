@@ -12,7 +12,6 @@ from openpyxl.cell import WriteOnlyCell
 
 from apps.reporting.models import ExportLog
 
-
 HEADERS = ("Section", "Metric", "Value")
 COUNT_FIELDS = {
     "reach", "workshops_held", "active_trainers", "count", "people", "total",
@@ -173,6 +172,11 @@ def _pdf_response(rows, filename):
 
 def export_report(rows, *, export_format, actor, view_name, filters=None):
     """Return a CSV, XLSX, or PDF response and write its audit record."""
+    from django.core.exceptions import PermissionDenied
+
+    from apps.accounts.permissions import can
+    if not can(actor, "export_reports"):
+        raise PermissionDenied
     if export_format not in {"csv", "xlsx", "pdf"}:
         raise ValueError("Choose CSV, XLSX, or PDF export.")
     rows = list(rows)

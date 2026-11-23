@@ -1,15 +1,16 @@
 """Library models - frameworks, domains, competencies, levels, crosswalks."""
+from typing import ClassVar
 
-from django.db import models
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.core.validators import MaxValueValidator, MinValueValidator
+from django.db import models
 
 
 class Framework(models.Model):
     """A competency framework - KNUST's own or an external standard."""
 
-    STATUS_CHOICES = [
+    STATUS_CHOICES: ClassVar[list] = [
         ("draft", "Draft"),
         ("published", "Published"),
         ("active", "Active"),
@@ -44,7 +45,7 @@ class Framework(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        ordering = ["-is_knust", "code"]
+        ordering: ClassVar[list] = ["-is_knust", "code"]
 
     def __str__(self):
         return f"{self.code} - {self.name}"
@@ -53,11 +54,11 @@ class Framework(models.Model):
 class FrameworkDraft(models.Model):
     """Proposed framework metadata held separately until publication."""
 
-    DRAFT_STATUS_CHOICES = [
+    DRAFT_STATUS_CHOICES: ClassVar[list] = [
         ("draft", "Draft"),
         ("published", "Published"),
     ]
-    SOURCE_CHOICES = [
+    SOURCE_CHOICES: ClassVar[list] = [
         ("csv", "CSV"),
         ("case_json", "IMS CASE JSON"),
         ("built_in", "Built-in"),
@@ -91,7 +92,7 @@ class FrameworkDraft(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        ordering = ["-created_at"]
+        ordering: ClassVar[list] = ["-created_at"]
 
     def __str__(self):
         return f"Framework draft: {self.code} ({self.status})"
@@ -100,7 +101,7 @@ class FrameworkDraft(models.Model):
 class Domain(models.Model):
     """A grouping inside a framework, e.g. 'AI Competency'."""
 
-    STATUS_CHOICES = [
+    STATUS_CHOICES: ClassVar[list] = [
         ("draft", "Draft"),
         ("published", "Published"),
         ("active", "Active"),
@@ -123,8 +124,8 @@ class Domain(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        ordering = ["framework", "display_order"]
-        constraints = [
+        ordering: ClassVar[list] = ["framework", "display_order"]
+        constraints: ClassVar[list] = [
             models.UniqueConstraint(
                 fields=["framework", "code"], name="uniq_domain_code"
             ),
@@ -137,7 +138,7 @@ class Domain(models.Model):
 class DomainDraft(models.Model):
     """Proposed domain metadata that is applied only on publication."""
 
-    DRAFT_STATUS_CHOICES = [
+    DRAFT_STATUS_CHOICES: ClassVar[list] = [
         ("draft", "Draft"),
         ("published", "Published"),
     ]
@@ -171,7 +172,7 @@ class DomainDraft(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        ordering = ["-created_at"]
+        ordering: ClassVar[list] = ["-created_at"]
 
     def __str__(self):
         return f"{self.framework.code} domain draft: {self.code} ({self.status})"
@@ -180,7 +181,7 @@ class DomainDraft(models.Model):
 class Competency(models.Model):
     """An individual competency, e.g. AI-01, DC-02, FT-01."""
 
-    STATUS_CHOICES = [
+    STATUS_CHOICES: ClassVar[list] = [
         ("draft", "Draft"),
         ("published", "Published"),
         ("active", "Active"),
@@ -212,8 +213,8 @@ class Competency(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        ordering = ["framework", "domain", "code"]
-        constraints = [
+        ordering: ClassVar[list] = ["framework", "domain", "code"]
+        constraints: ClassVar[list] = [
             models.UniqueConstraint(
                 fields=["framework", "code"], name="uniq_competency_code"
             ),
@@ -226,7 +227,7 @@ class Competency(models.Model):
 class CompetencyDraft(models.Model):
     """Proposed competency edits awaiting publication or a second curator."""
 
-    STATUS_CHOICES = [
+    STATUS_CHOICES: ClassVar[list] = [
         ("draft", "Draft"),
         ("awaiting_approval", "Awaiting second curator"),
         ("published", "Published"),
@@ -280,7 +281,7 @@ class CompetencyDraft(models.Model):
     published_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
-        ordering = ["-created_at"]
+        ordering: ClassVar[list] = ["-created_at"]
 
     def __str__(self):
         return f"{self.competency.code} draft ({self.get_status_display()})"
@@ -300,8 +301,8 @@ class Level(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        ordering = ["framework", "ordinal"]
-        constraints = [
+        ordering: ClassVar[list] = ["framework", "ordinal"]
+        constraints: ClassVar[list] = [
             models.UniqueConstraint(
                 fields=["framework", "ordinal"], name="uniq_level_ordinal"
             ),
@@ -314,7 +315,7 @@ class Level(models.Model):
 class LevelDraft(models.Model):
     """Proposed proficiency-level change requiring second-curator approval."""
 
-    STATUS_CHOICES = [
+    STATUS_CHOICES: ClassVar[list] = [
         ("draft", "Draft"),
         ("awaiting_approval", "Awaiting second curator"),
         ("published", "Published"),
@@ -355,7 +356,7 @@ class LevelDraft(models.Model):
     published_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
-        ordering = ["-created_at"]
+        ordering: ClassVar[list] = ["-created_at"]
 
     def __str__(self):
         return f"{self.framework.code} level {self.ordinal} draft ({self.get_status_display()})"
@@ -380,8 +381,8 @@ class Crosswalk(models.Model):
     note = models.CharField(max_length=300, blank=True, default="")
 
     class Meta:
-        ordering = ["knust_competency", "external_competency"]
-        constraints = [
+        ordering: ClassVar[list] = ["knust_competency", "external_competency"]
+        constraints: ClassVar[list] = [
             models.UniqueConstraint(
                 fields=["knust_competency", "external_competency", "external_level"],
                 name="uniq_crosswalk",
@@ -395,7 +396,7 @@ class Crosswalk(models.Model):
 class CrosswalkDraft(models.Model):
     """A crosswalk change that remains inactive until a second curator approves it."""
 
-    STATUS_CHOICES = [
+    STATUS_CHOICES: ClassVar[list] = [
         ("draft", "Draft"),
         ("awaiting_approval", "Awaiting second curator"),
         ("published", "Published"),
@@ -440,7 +441,7 @@ class CrosswalkDraft(models.Model):
     published_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
-        ordering = ["-created_at"]
+        ordering: ClassVar[list] = ["-created_at"]
 
     def __str__(self):
         return f"{self.knust_competency.code} crosswalk draft ({self.get_status_display()})"
@@ -449,7 +450,7 @@ class CrosswalkDraft(models.Model):
 class EvidenceRule(models.Model):
     """Caps the level any evidence type can support for a competency."""
 
-    EVIDENCE_TYPE_CHOICES = [
+    EVIDENCE_TYPE_CHOICES: ClassVar[list] = [
         ("self", "Self-assessment"),
         ("task", "Workshop task/quiz"),
         ("assessor", "Facilitator/assessor"),
@@ -458,7 +459,7 @@ class EvidenceRule(models.Model):
         ("attendance", "Workshop attendance"),
     ]
 
-    STATUS_CHOICES = [
+    STATUS_CHOICES: ClassVar[list] = [
         ("draft", "Draft"),
         ("published", "Published"),
         ("active", "Active"),
@@ -483,7 +484,7 @@ class EvidenceRule(models.Model):
     )
 
     class Meta:
-        ordering = ["evidence_type", "competency"]
+        ordering: ClassVar[list] = ["evidence_type", "competency"]
 
     def __str__(self):
         scope = self.competency.code if self.competency else "all competencies"
@@ -493,7 +494,7 @@ class EvidenceRule(models.Model):
 class EvidenceRuleDraft(models.Model):
     """A proposed evidence rule that needs a separate curator to publish."""
 
-    STATUS_CHOICES = [
+    STATUS_CHOICES: ClassVar[list] = [
         ("draft", "Draft"),
         ("awaiting_approval", "Awaiting second curator"),
         ("published", "Published"),
@@ -538,20 +539,20 @@ class EvidenceRuleDraft(models.Model):
     published_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
-        ordering = ["-created_at"]
+        ordering: ClassVar[list] = ["-created_at"]
 
     def __str__(self):
         return f"{self.get_evidence_type_display()} evidence rule draft ({self.get_status_display()})"
 class SurveyTemplate(models.Model):
     """Survey question sets, editable and versioned."""
 
-    TYPE_CHOICES = [
+    TYPE_CHOICES: ClassVar[list] = [
         ("pre", "Pre-session"),
         ("exit", "Exit"),
         ("follow_up", "Follow-up"),
     ]
 
-    STATUS_CHOICES = [
+    STATUS_CHOICES: ClassVar[list] = [
         ("draft", "Draft"),
         ("published", "Published"),
         ("active", "Active"),
@@ -572,7 +573,7 @@ class SurveyTemplate(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        ordering = ["type", "name"]
+        ordering: ClassVar[list] = ["type", "name"]
 
     def __str__(self):
         return f"{self.name} ({self.get_type_display()})"  
@@ -591,8 +592,8 @@ class CertificationCatalogue(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        ordering = ["issuer", "title"]
-        constraints = [
+        ordering: ClassVar[list] = ["issuer", "title"]
+        constraints: ClassVar[list] = [
             models.UniqueConstraint(
                 fields=["issuer", "title"], name="uniq_certification"
             ),
@@ -616,8 +617,8 @@ class CertificationCompetency(models.Model):
     max_level = models.PositiveSmallIntegerField(default=3)
 
     class Meta:
-        ordering = ["certification", "competency"]
-        constraints = [
+        ordering: ClassVar[list] = ["certification", "competency"]
+        constraints: ClassVar[list] = [
             models.UniqueConstraint(
                 fields=["certification", "competency"],
                 name="uniq_cert_comp",
@@ -631,7 +632,7 @@ class CertificationCompetency(models.Model):
 class LibraryVersion(models.Model):
     """Immutable snapshot of a published Library item or framework revision."""
 
-    ITEM_TYPE_CHOICES = [
+    ITEM_TYPE_CHOICES: ClassVar[list] = [
         ("framework", "Framework metadata"),
         ("framework_snapshot", "Framework snapshot"),
         ("domain", "Domain"),
@@ -671,8 +672,8 @@ class LibraryVersion(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        ordering = ["item_type", "item_id", "-version_number"]
-        constraints = [
+        ordering: ClassVar[list] = ["item_type", "item_id", "-version_number"]
+        constraints: ClassVar[list] = [
             models.UniqueConstraint(
                 fields=["item_type", "item_id", "version_number"],
                 name="uniq_library_item_version",

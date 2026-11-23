@@ -1,8 +1,8 @@
-from django.test import TestCase
 
 # Create your tests here.
-import pytest
 from unittest.mock import Mock, patch
+
+import pytest
 from django.contrib.auth import get_user_model
 from django.core import mail
 from django.test import override_settings

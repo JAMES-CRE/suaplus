@@ -1,8 +1,8 @@
-import datetime
 from django.core.management.base import BaseCommand
 from django.db import transaction
+
 from apps.registry.models import OrgUnit
-from apps.core.models import AcademicPeriod
+
 
 class Command(BaseCommand):
     help = "Seeds the KNUST OrgUnit hierarchy (Colleges, Faculties, Departments)"

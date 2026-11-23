@@ -1,13 +1,15 @@
+from typing import ClassVar
+
 from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
 
-    dependencies = [
+    dependencies: ClassVar[list] = [
         ("passport", "0005_learninggoal"),
     ]
 
-    operations = [
+    operations: ClassVar[list] = [
         migrations.AlterField(
             model_name="credential",
             name="status",

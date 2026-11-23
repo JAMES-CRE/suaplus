@@ -1,19 +1,20 @@
-from django.test import TestCase
 
 # Create your tests here.
-import pytest
 import datetime as dt
+
+import pytest
 from django.contrib.auth import get_user_model
 from django.http import QueryDict
 from django.urls import reverse
 
 from apps.accounts.models import RoleAssignment, UserAccount
+from apps.accounts.tests.helpers import force_login_with_mfa
+from apps.core.models import AcademicPeriod
 from apps.programmes.models import Partner, Programme, ProgrammePartner
+from apps.registry.models import Organisation, Person
 from apps.reporting.exports import suppress_small_counts
 from apps.reporting.models import ExportLog
 from apps.reporting.views import _resolve_dashboard_period
-from apps.core.models import AcademicPeriod
-from apps.registry.models import Organisation, Person
 from apps.sessions.models import Attendance, Session, SessionPartner
 
 
@@ -33,7 +34,7 @@ def test_dashboard_rejects_out_of_scope_programme_filter(client):
         scope_type="programme",
         scope_id=allowed.id,
     )
-    client.force_login(user)
+    force_login_with_mfa(client, user)
 
     response = client.get(
         reverse("dashboard"), {"programme": forbidden.id}
@@ -58,7 +59,7 @@ def test_dashboard_limits_programme_choices_to_owner_scope(client):
         scope_type="programme",
         scope_id=allowed.id,
     )
-    client.force_login(user)
+    force_login_with_mfa(client, user)
 
     response = client.get(reverse("dashboard"))
 
@@ -79,7 +80,7 @@ def test_dashboard_exports_csv_xlsx_and_pdf_and_logs_each_export(client):
         role="super_admin",
         scope_type="all",
     )
-    client.force_login(user)
+    force_login_with_mfa(client, user)
 
     for export_format, content_type, signature in [
         ("csv", "text/csv", b"\xef\xbb\xbfSection,Metric,Value"),
@@ -130,7 +131,7 @@ def test_drilldown_and_memo_exports_are_logged(client):
         narrative="Executive summary line.",
         created_by=user,
     )
-    client.force_login(user)
+    force_login_with_mfa(client, user)
 
     drilldown_response = client.get(
         reverse("drilldown", args=["reach"]), {"export": "csv"}
@@ -179,7 +180,7 @@ def test_executive_dashboard_suppresses_small_counts_in_view_and_export(client):
     RoleAssignment.objects.create(
         user_account=account, role="executive_viewer", scope_type="all"
     )
-    client.force_login(user)
+    force_login_with_mfa(client, user)
 
     page = client.get(reverse("dashboard"))
     export = client.get(reverse("dashboard"), {"export": "csv"})
@@ -208,8 +209,8 @@ def test_executive_drilldown_hides_fewer_than_five_people(client):
     session = Session.objects.create(
         programme=programme,
         title="Small group session",
-        start_at=dt.datetime(2026, 10, 1, 9, tzinfo=dt.timezone.utc),
-        end_at=dt.datetime(2026, 10, 1, 17, tzinfo=dt.timezone.utc),
+        start_at=dt.datetime(2026, 10, 1, 9, tzinfo=dt.UTC),
+        end_at=dt.datetime(2026, 10, 1, 17, tzinfo=dt.UTC),
         mode="in_person",
         status="closed",
     )
@@ -223,7 +224,7 @@ def test_executive_drilldown_hides_fewer_than_five_people(client):
         check_in_at=session.start_at,
         status="partial",
     )
-    client.force_login(user)
+    force_login_with_mfa(client, user)
 
     response = client.get(reverse("drilldown", args=["reach"]))
 
@@ -256,7 +257,7 @@ def test_dashboard_chart_json_scripts_render_outside_executable_script(client, m
         "apps.reporting.views.kpi_reach_by_unit",
         lambda **kwargs: [{"unit": "Science", "people": 9}],
     )
-    client.force_login(user)
+    force_login_with_mfa(client, user)
 
     response = client.get(reverse("dashboard"))
     html = response.content.decode()
@@ -288,8 +289,8 @@ def test_dashboard_period_resolver_supports_academic_quarter_and_custom_ranges()
     Session.objects.create(
         programme=programme,
         title="Period test session",
-        start_at=dt.datetime(2026, 4, 20, 9, tzinfo=dt.timezone.utc),
-        end_at=dt.datetime(2026, 4, 20, 17, tzinfo=dt.timezone.utc),
+        start_at=dt.datetime(2026, 4, 20, 9, tzinfo=dt.UTC),
+        end_at=dt.datetime(2026, 4, 20, 17, tzinfo=dt.UTC),
         mode="in_person",
     )
 
@@ -342,7 +343,7 @@ def test_dashboard_passes_selected_academic_period_to_kpis(client, monkeypatch):
         return 0
 
     monkeypatch.setattr("apps.reporting.views.kpi_reach", capture_reach)
-    client.force_login(user)
+    force_login_with_mfa(client, user)
 
     response = client.get(reverse("dashboard"), {"period": f"academic-{period.id}"})
 
@@ -372,8 +373,8 @@ def test_dashboard_scope_filters_apply_to_kpis_and_exports(client):
     session = Session.objects.create(
         programme=programme,
         title="Scoped session",
-        start_at=dt.datetime(2026, 10, 1, 9, tzinfo=dt.timezone.utc),
-        end_at=dt.datetime(2026, 10, 1, 17, tzinfo=dt.timezone.utc),
+        start_at=dt.datetime(2026, 10, 1, 9, tzinfo=dt.UTC),
+        end_at=dt.datetime(2026, 10, 1, 17, tzinfo=dt.UTC),
         mode="in_person",
         status="closed",
     )
@@ -390,9 +391,10 @@ def test_dashboard_scope_filters_apply_to_kpis_and_exports(client):
             person=person,
             method="manual",
             check_in_at=session.start_at,
+            check_out_at=session.end_at,
             status="completed",
         )
-    client.force_login(user)
+    force_login_with_mfa(client, user)
 
     response = client.get(
         reverse("dashboard"),
@@ -445,7 +447,7 @@ def test_dashboard_renders_srs_chart_data(client, monkeypatch):
         "apps.reporting.views.kpi_cascade_by_trainer",
         lambda **kwargs: [{"trainer": "Ama Trainer", "multiplier": 2.0, "direct": 4, "second_generation": 4}],
     )
-    client.force_login(user)
+    force_login_with_mfa(client, user)
 
     response = client.get(reverse("dashboard"))
     html = response.content.decode()

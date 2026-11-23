@@ -7,14 +7,14 @@ All functions exclude self-reported evidence from progression/coverage -
 that matches the spec's rule that self-ratings never count toward KPIs.
 """
 
-from datetime import timedelta
-
-from django.db.models import Avg, Count, Max, Min, Q
+from django.db.models import Avg, Count, Q
 from django.utils import timezone
 
+from apps.accounts.permissions import unit_descendants
 from apps.passport.models import Evidence
-from apps.programmes.models import Programme
+from apps.passport.querysets import valid_evidence
 from apps.registry.models import Person, UnitHeadcount
+from apps.reporting.access import records as _records
 from apps.sessions.models import Attendance, Facilitation, Session, SurveyResponse
 
 
@@ -25,15 +25,28 @@ def suppress(count, threshold=5):
 
 
 def _attendance_qs(
-    programme=None, unit=None, since=None, until=None,
-    category=None, affiliation=None, partner_id=None,
+    programme=None,
+    unit=None,
+    since=None,
+    until=None,
+    category=None,
+    affiliation=None,
+    partner_id=None,
 ):
     """Base queryset of completed/partial attendances, with optional filters."""
-    qs = Attendance.objects.filter(status__in=["completed", "partial"])
+    qs = (
+        _records(Attendance)
+        .filter(
+            status__in=["completed", "partial"],
+            person__is_anonymised=False,
+            person__merged_into__isnull=True,
+        )
+        .exclude(session__status="cancelled")
+    )
     if programme:
         qs = qs.filter(session__programme=programme)
     if unit:
-        qs = qs.filter(person__unit=unit)
+        qs = qs.filter(person__unit_id__in=unit_descendants(unit.pk))
     if category:
         qs = qs.filter(person__category=category)
     if affiliation:
@@ -50,29 +63,124 @@ def _attendance_qs(
     return qs
 
 
-def kpi_reach(programme=None, unit=None, since=None, until=None, category=None, affiliation=None, partner_id=None):
+def _headcount_total(
+    queryset, unit=None, since=None, until=None, category=None, affiliation=None
+):
+    """Latest matching snapshot; parent category roll-ups replace descendants."""
+    if affiliation == "external":
+        return 0
+    qs = queryset.filter(period__start_date__lte=(until or timezone.now()).date())
+    if since:
+        qs = qs.filter(period__end_date__gte=since.date())
+    if unit:
+        qs = qs.filter(unit_id__in=unit_descendants(unit.pk))
+    if category:
+        qs = qs.filter(category=category)
+    if affiliation == "staff":
+        qs = qs.filter(category__in=["academic", "non_academic"])
+    elif affiliation == "student":
+        qs = qs.filter(category__in=["undergrad", "postgrad"])
+    period_id = (
+        qs.order_by("-period__start_date", "-period_id")
+        .values_list("period_id", flat=True)
+        .first()
+    )
+    if period_id is None:
+        return 0
+    rows = list(
+        qs.filter(period_id=period_id).values("unit_id", "category", "headcount")
+    )
+    from apps.registry.models import OrgUnit
+
+    parents = dict(OrgUnit.objects.values_list("pk", "parent_id"))
+    keys = {(row["unit_id"], row["category"]) for row in rows}
+    total = 0
+    for row in rows:
+        parent, seen, covered = parents.get(row["unit_id"]), set(), False
+        while parent is not None and parent not in seen:
+            seen.add(parent)
+            if (parent, row["category"]) in keys:
+                covered = True
+                break
+            parent = parents.get(parent)
+        if not covered:
+            total += row["headcount"]
+    return total
+
+
+def _progression_rows(qs):
+    """Chronological deltas, retaining zero and negative changes."""
+    bounds = {}
+    rows = qs.order_by("person_id", "competency_id", "assessed_at", "pk").values(
+        "person_id",
+        "competency_id",
+        "competency__domain_id",
+        "competency__domain__name",
+        "assessed_at",
+        "level__ordinal",
+        "pk",
+    )
+    for row in rows:
+        key = (row["person_id"], row["competency_id"])
+        if key not in bounds:
+            bounds[key] = [row, row]
+        else:
+            bounds[key][1] = row
+    return [
+        (first, last["level__ordinal"] - first["level__ordinal"])
+        for first, last in bounds.values()
+        if first["assessed_at"] < last["assessed_at"]
+    ]
+
+
+def kpi_reach(
+    programme=None,
+    unit=None,
+    since=None,
+    until=None,
+    category=None,
+    affiliation=None,
+    partner_id=None,
+):
     """Distinct people trained in the period."""
-    qs = _attendance_qs(programme, unit, since, until, category, affiliation, partner_id)
+    qs = _attendance_qs(
+        programme, unit, since, until, category, affiliation, partner_id
+    )
     return qs.values("person_id").distinct().count()
 
 
-
-def kpi_coverage(programme=None, unit=None, since=None, until=None, category=None, affiliation=None, partner_id=None):
+def kpi_coverage(
+    programme=None,
+    unit=None,
+    since=None,
+    until=None,
+    category=None,
+    affiliation=None,
+    partner_id=None,
+):
     """% of headcount at level 2+ on at least one programme competency.
 
     Denominator: sum of unit_headcount for the matching units and their categories.
     Numerator: distinct people with evidence at level 2+ on any programme competency.
     """
+    if affiliation == "external":
+        return {"numerator": 0, "denominator": 0, "percent": None}
     # Numerator: people with level 2+ evidence on a programme competency
-    ev_qs = Evidence.objects.filter(
-        status="valid", level__ordinal__gte=2
-    ).exclude(type="self")
+    ev_qs = (
+        valid_evidence(_records(Evidence))
+        .filter(
+            status="valid",
+            level__ordinal__gte=2,
+            person__affiliation__in=["staff", "student"],
+        )
+        .exclude(type="self")
+    )
     if programme:
         ev_qs = ev_qs.filter(
             competency__in=programme.competency_targets.values("competency")
         )
     if unit:
-        ev_qs = ev_qs.filter(person__unit=unit)
+        ev_qs = ev_qs.filter(person__unit_id__in=unit_descendants(unit.pk))
     if category:
         ev_qs = ev_qs.filter(person__category=category)
     if affiliation:
@@ -88,17 +196,9 @@ def kpi_coverage(programme=None, unit=None, since=None, until=None, category=Non
         ev_qs = ev_qs.filter(assessed_at__lte=until)
     numerator = ev_qs.values("person_id").distinct().count()
 
-    # Denominator: total headcount
-    hc_qs = UnitHeadcount.objects.all()
-    if unit:
-        hc_qs = hc_qs.filter(unit=unit)
-    if category:
-        hc_qs = hc_qs.filter(category=category)
-    if since:
-        hc_qs = hc_qs.filter(period__end_date__gte=since.date())
-    if until:
-        hc_qs = hc_qs.filter(period__start_date__lte=until.date())
-    denominator = hc_qs.aggregate(total=Max("headcount"))["total"] or 0
+    denominator = _headcount_total(
+        _records(UnitHeadcount), unit, since, until, category, affiliation
+    )
 
     if denominator == 0:
         return {"numerator": numerator, "denominator": 0, "percent": None}
@@ -110,21 +210,25 @@ def kpi_coverage(programme=None, unit=None, since=None, until=None, category=Non
     }
 
 
-
-
-
-
-
-
-def kpi_progression(programme=None, unit=None, since=None, until=None, category=None, affiliation=None, partner_id=None):
+def kpi_progression(
+    programme=None,
+    unit=None,
+    since=None,
+    until=None,
+    category=None,
+    affiliation=None,
+    partner_id=None,
+):
     """Mean change in level between baseline and latest evidence per person/competency."""
-    ev_qs = Evidence.objects.filter(status="valid").exclude(type="self")
+    ev_qs = (
+        valid_evidence(_records(Evidence)).filter(status="valid").exclude(type="self")
+    )
     if programme:
         ev_qs = ev_qs.filter(
             competency__in=programme.competency_targets.values("competency")
         )
     if unit:
-        ev_qs = ev_qs.filter(person__unit=unit)
+        ev_qs = ev_qs.filter(person__unit_id__in=unit_descendants(unit.pk))
     if category:
         ev_qs = ev_qs.filter(person__category=category)
     if affiliation:
@@ -139,20 +243,7 @@ def kpi_progression(programme=None, unit=None, since=None, until=None, category=
     if until:
         ev_qs = ev_qs.filter(assessed_at__lte=until)
 
-    # For each person/competency, compute first and last level
-    grouped = ev_qs.values("person_id", "competency_id").annotate(
-        first_level=Min("level__ordinal"),
-        last_level=Max("level__ordinal"),
-        first_at=Min("assessed_at"),
-        last_at=Max("assessed_at"),
-    )
-
-    deltas = []
-    for row in grouped:
-        # Only measure progression where there are at least two distinct timestamps
-        if row["first_at"] and row["last_at"] and row["first_at"] < row["last_at"]:
-            if row["first_level"] and row["last_level"]:
-                deltas.append(row["last_level"] - row["first_level"])
+    deltas = [delta for _, delta in _progression_rows(ev_qs)]
 
     if not deltas:
         return {"count": 0, "mean_delta": 0.0}
@@ -163,19 +254,36 @@ def kpi_progression(programme=None, unit=None, since=None, until=None, category=
     }
 
 
-
 # ---------------------------------------------------------------------------
 # CSAT
 # ---------------------------------------------------------------------------
 
 
-def kpi_csat(programme=None, unit=None, since=None, until=None, category=None, affiliation=None, partner_id=None):
+def kpi_csat(
+    programme=None,
+    unit=None,
+    since=None,
+    until=None,
+    category=None,
+    affiliation=None,
+    partner_id=None,
+):
     """Mean CSAT across exit surveys."""
-    qs = SurveyResponse.objects.filter(type="exit", csat__isnull=False)
+    qs = (
+        _records(SurveyResponse)
+        .filter(
+            type="exit",
+            csat__isnull=False,
+            attendance__status="completed",
+            attendance__person__is_anonymised=False,
+            attendance__person__merged_into__isnull=True,
+        )
+        .exclude(attendance__session__status="cancelled")
+    )
     if programme:
         qs = qs.filter(attendance__session__programme=programme)
     if unit:
-        qs = qs.filter(attendance__person__unit=unit)
+        qs = qs.filter(attendance__person__unit_id__in=unit_descendants(unit.pk))
     if category:
         qs = qs.filter(attendance__person__category=category)
     if affiliation:
@@ -184,7 +292,7 @@ def kpi_csat(programme=None, unit=None, since=None, until=None, category=None, a
         qs = qs.filter(
             Q(attendance__session__partners__partner_id=partner_id)
             | Q(attendance__session__programme__partners__partner_id=partner_id)
-        )
+        ).distinct()
     if since:
         qs = qs.filter(submitted_at__gte=since)
     if until:
@@ -202,90 +310,124 @@ def kpi_csat(programme=None, unit=None, since=None, until=None, category=None, a
 # ---------------------------------------------------------------------------
 
 
-def kpi_cascade(programme=None, since=None, until=None, category=None, affiliation=None, partner_id=None):
-    """Mean cascade multiplier across trainers (direct + second-gen) / direct."""
-    from apps.programmes.services.tier_engine import (
-        _check_min_mean_csat,  # reuse for reference if needed
-    )
-
-    # Direct trainees per trainer
-    direct = (
-        Facilitation.objects.filter(session__attendances__status="completed")
-        .values("person_id", "session__programme_id")
-        .annotate(
-            direct_trainees=Count("session__attendances__person_id", distinct=True)
+def _cascade_rows(
+    programme=None,
+    since=None,
+    until=None,
+    category=None,
+    affiliation=None,
+    partner_id=None,
+):
+    """Count source-scoped completed trainees, with chronological cascade edges."""
+    facilitations = (
+        _records(Facilitation)
+        .filter(
+            person__is_anonymised=False,
+            person__merged_into__isnull=True,
         )
+        .exclude(session__status="cancelled")
     )
     if programme:
-        direct = direct.filter(session__programme=programme)
-    if category:
-        direct = direct.filter(person__category=category)
-    if affiliation:
-        direct = direct.filter(person__affiliation=affiliation)
+        facilitations = facilitations.filter(session__programme=programme)
+    if since:
+        facilitations = facilitations.filter(session__start_at__gte=since)
+    if until:
+        facilitations = facilitations.filter(session__start_at__lte=until)
     if partner_id:
-        direct = direct.filter(
+        facilitations = facilitations.filter(
             Q(session__partners__partner_id=partner_id)
             | Q(session__programme__partners__partner_id=partner_id)
         )
-    if since:
-        direct = direct.filter(session__start_at__gte=since)
-    if until:
-        direct = direct.filter(session__start_at__lte=until)
-
-    multipliers = []
-    for row in direct.distinct():
-        trainer_id = row["person_id"]
-        prog_id = row["session__programme_id"]
-        direct_count = row["direct_trainees"]
-
-        if direct_count == 0:
+    attendances = _attendance_qs(
+        programme, None, since, until, None, None, partner_id
+    ).filter(status="completed")
+    by_session = {}
+    for row in attendances.values("session_id", "person_id", "check_out_at"):
+        by_session.setdefault(row["session_id"], []).append(row)
+    edges, names = {}, {}
+    for row in facilitations.values(
+        "person_id",
+        "person__full_name",
+        "person__category",
+        "person__affiliation",
+        "session_id",
+        "session__programme_id",
+        "session__start_at",
+    ).distinct():
+        key = (row["person_id"], row["session__programme_id"])
+        names[key] = row
+        for attendance in by_session.get(row["session_id"], []):
+            if attendance["person_id"] != row["person_id"]:
+                edges.setdefault(key, []).append(
+                    (
+                        attendance["person_id"],
+                        attendance["check_out_at"],
+                        row["session__start_at"],
+                    )
+                )
+    result = []
+    for (trainer, prog), training in edges.items():
+        info = names[(trainer, prog)]
+        if (category and info["person__category"] != category) or (
+            affiliation and info["person__affiliation"] != affiliation
+        ):
             continue
+        direct = {}
+        for trainee, completed, _ in training:
+            if completed is not None:
+                direct[trainee] = min(direct.get(trainee, completed), completed)
+        second = set()
+        for trainee, completed in direct.items():
+            for downstream, _, started in edges.get((trainee, prog), []):
+                if (
+                    started >= completed
+                    and downstream != trainer
+                    and downstream not in direct
+                ):
+                    second.add(downstream)
+        if direct:
+            result.append(
+                {
+                    "trainer": info["person__full_name"],
+                    "direct": len(direct),
+                    "second_generation": len(second),
+                    "multiplier": (len(direct) + len(second)) / len(direct),
+                }
+            )
+    return sorted(result, key=lambda row: (-row["multiplier"], row["trainer"]))
 
-        # Second-generation: trainees trained by this trainer's direct trainees
-        first_generation = Facilitation.objects.filter(
-            person_id=trainer_id, session__programme_id=prog_id
-        )
-        if since:
-            first_generation = first_generation.filter(session__start_at__gte=since)
-        if until:
-            first_generation = first_generation.filter(session__start_at__lte=until)
-        direct_trainee_ids = first_generation.values_list(
-            "session__attendances__person_id", flat=True
-        ).distinct()
 
-        second_generation = Facilitation.objects.filter(
-            person_id__in=[tid for tid in direct_trainee_ids if tid],
-            session__programme_id=prog_id,
-        )
-        if since:
-            second_generation = second_generation.filter(session__start_at__gte=since)
-        if until:
-            second_generation = second_generation.filter(session__start_at__lte=until)
-        second_gen = second_generation.values_list(
-            "session__attendances__person_id", flat=True
-        ).distinct().count()
-        multiplier = (direct_count + second_gen) / direct_count
-        multipliers.append(multiplier)
-
-    if not multipliers:
-        return {"count": 0, "mean_multiplier": 0.0}
-
+def kpi_cascade(
+    programme=None,
+    since=None,
+    until=None,
+    category=None,
+    affiliation=None,
+    partner_id=None,
+):
+    rows = _cascade_rows(programme, since, until, category, affiliation, partner_id)
     return {
-        "count": len(multipliers),
-        "mean_multiplier": round(sum(multipliers) / len(multipliers), 2),
+        "count": len(rows),
+        "mean_multiplier": round(sum(r["multiplier"] for r in rows) / len(rows), 2)
+        if rows
+        else 0.0,
     }
 
 
-# ---------------------------------------------------------------------------
-# Trainer pipeline
-# ---------------------------------------------------------------------------
-
-
-def kpi_pipeline(programme=None, since=None, until=None, category=None, affiliation=None, partner_id=None):
+def kpi_pipeline(
+    programme=None,
+    since=None,
+    until=None,
+    category=None,
+    affiliation=None,
+    partner_id=None,
+):
     """Count per tier across all TierStatus rows."""
     from apps.programmes.models import TierStatus
 
-    qs = TierStatus.objects.filter(status="approved")
+    qs = _records(TierStatus).filter(
+        status="approved", person__is_anonymised=False, person__merged_into__isnull=True
+    )
     if programme:
         qs = qs.filter(programme=programme)
     if category:
@@ -299,7 +441,13 @@ def kpi_pipeline(programme=None, since=None, until=None, category=None, affiliat
     if until:
         qs = qs.filter(approved_at__lte=until)
 
-    counts = qs.values("tier").annotate(n=Count("id"))
+    highest = {}
+    for person_id, tier in qs.values_list("person_id", "tier"):
+        highest[person_id] = max(highest.get(person_id, 0), tier)
+    counts = [
+        {"tier": tier, "n": list(highest.values()).count(tier)}
+        for tier in set(highest.values())
+    ]
     tiers = {
         1: "Explorer",
         2: "Practitioner",
@@ -319,9 +467,18 @@ def kpi_pipeline(programme=None, since=None, until=None, category=None, affiliat
 # ---------------------------------------------------------------------------
 
 
-def kpi_reach_by_unit(programme=None, since=None, until=None, category=None, affiliation=None, partner_id=None):
+def kpi_reach_by_unit(
+    programme=None,
+    since=None,
+    until=None,
+    category=None,
+    affiliation=None,
+    partner_id=None,
+):
     """List of (unit_name, distinct people) for the bar chart."""
-    qs = _attendance_qs(programme, None, since, until, category, affiliation, partner_id)
+    qs = _attendance_qs(
+        programme, None, since, until, category, affiliation, partner_id
+    )
     rows = (
         qs.values("person__unit__name")
         .annotate(people=Count("person_id", distinct=True))
@@ -332,8 +489,8 @@ def kpi_reach_by_unit(programme=None, since=None, until=None, category=None, aff
         for row in rows
         if row["person__unit__name"]
     ]
-    
-    
+
+
 # ---------------------------------------------------------------------------
 # Breakdowns for the executive memo
 # ---------------------------------------------------------------------------
@@ -360,7 +517,9 @@ def kpi_reach_by_category(programme=None, unit=None, since=None):
         .annotate(people=Count("person_id", distinct=True))
         .order_by("-people")
     )
-    return [{"category": row["person__category"], "people": row["people"]} for row in rows]
+    return [
+        {"category": row["person__category"], "people": row["people"]} for row in rows
+    ]
 
 
 def kpi_reach_by_rank(programme=None, unit=None, since=None):
@@ -377,9 +536,9 @@ def kpi_reach_by_rank(programme=None, unit=None, since=None):
     ]
 
 
-def kpi_reach_by_programme(since=None):
+def kpi_reach_by_programme(since=None, programme=None):
     """Reach grouped by programme."""
-    qs = _attendance_qs(None, None, since, None)
+    qs = _attendance_qs(programme, None, since, None)
     rows = (
         qs.values("session__programme__name")
         .annotate(people=Count("person_id", distinct=True))
@@ -419,7 +578,17 @@ def kpi_affiliation_split(programme=None, since=None):
 
 def kpi_csat_distribution(programme=None, since=None):
     """Count of CSAT responses per score 1-5."""
-    qs = SurveyResponse.objects.filter(type="exit", csat__isnull=False)
+    qs = (
+        _records(SurveyResponse)
+        .filter(
+            type="exit",
+            csat__isnull=False,
+            attendance__status="completed",
+            attendance__person__is_anonymised=False,
+            attendance__person__merged_into__isnull=True,
+        )
+        .exclude(attendance__session__status="cancelled")
+    )
     if programme:
         qs = qs.filter(attendance__session__programme=programme)
     if since:
@@ -436,11 +605,9 @@ def kpi_csat_distribution(programme=None, since=None):
 
 def kpi_evidence_by_type(programme=None, since=None):
     """Count of evidence rows by evidence type."""
-    qs = Evidence.objects.filter(status="valid")
+    qs = valid_evidence(_records(Evidence)).filter(status="valid")
     if programme:
-        qs = qs.filter(
-            competency__in=programme.competency_targets.values("competency")
-        )
+        qs = qs.filter(competency__in=programme.competency_targets.values("competency"))
     if since:
         qs = qs.filter(assessed_at__gte=since)
 
@@ -452,7 +619,7 @@ def kpi_sessions_by_month(programme=None, since=None):
     """Sessions grouped by month."""
     from django.db.models.functions import TruncMonth
 
-    qs = Session.objects.all()
+    qs = _records(Session).filter(status="closed", end_at__lte=timezone.now())
     if programme:
         qs = qs.filter(programme=programme)
     if since:
@@ -474,13 +641,19 @@ def kpi_sessions_by_month(programme=None, since=None):
     ]
 
 
-def kpi_pipeline_funnel():
+def kpi_pipeline_funnel(programme=None, since=None):
     """Full funnel: how many people at each stage."""
     from apps.programmes.models import TierStatus
 
-    # Total people with any evidence at all (any stage)
+    evidence = valid_evidence(_records(Evidence)).exclude(type="self")
+    if programme:
+        evidence = evidence.filter(
+            competency__in=programme.competency_targets.values("competency")
+        )
+    if since:
+        evidence = evidence.filter(assessed_at__gte=since)
     total_with_evidence = (
-        Evidence.objects.filter(status="valid")
+        evidence.filter(status="valid")
         .exclude(type="self")
         .values("person_id")
         .distinct()
@@ -496,65 +669,43 @@ def kpi_pipeline_funnel():
         "master": 0,
     }
 
-    for row in TierStatus.objects.all().values("status", "tier").annotate(
-        n=Count("person_id", distinct=True)
-    ):
-        if row["status"] == "eligible":
-            funnel["eligible"] += row["n"]
-        elif row["status"] == "nominated":
-            funnel["nominated"] += row["n"]
-        elif row["status"] == "approved":
-            funnel["approved"] += row["n"]
-            if row["tier"] >= 4:
-                funnel["certified"] += row["n"]
-            if row["tier"] == 5:
-                funnel["master"] += row["n"]
+    statuses = _records(TierStatus).filter(
+        person__is_anonymised=False, person__merged_into__isnull=True
+    )
+    if programme:
+        statuses = statuses.filter(programme=programme)
+    if since:
+        statuses = statuses.filter(updated_at__gte=since)
+    for status in ("eligible", "nominated", "approved"):
+        funnel[status] = (
+            statuses.filter(status=status).values("person_id").distinct().count()
+        )
+    funnel["certified"] = (
+        statuses.filter(status="approved", tier__gte=4)
+        .values("person_id")
+        .distinct()
+        .count()
+    )
+    funnel["master"] = (
+        statuses.filter(status="approved", tier=5)
+        .values("person_id")
+        .distinct()
+        .count()
+    )
 
     return funnel
 
 
 def kpi_cascade_top(limit=10):
-    """Top trainers by cascade multiplier."""
-    from apps.sessions.models import Facilitation
-
-    trainers = Facilitation.objects.values("person_id").distinct()
-    results = []
-
-    for t in trainers:
-        trainer_id = t["person_id"]
-        direct = (
-            Facilitation.objects.filter(person_id=trainer_id)
-            .values_list("session__attendances__person_id", flat=True)
-            .distinct()
-        )
-        direct_ids = [tid for tid in direct if tid and tid != trainer_id]
-        direct_count = len(direct_ids)
-        if direct_count == 0:
-            continue
-
-        second_gen_count = (
-            Facilitation.objects.filter(person_id__in=direct_ids)
-            .values_list("session__attendances__person_id", flat=True)
-            .distinct()
-            .exclude(person_id__in=direct_ids)
-            .exclude(person_id=trainer_id)
-            .count()
-        )
-        multiplier = (direct_count + second_gen_count) / direct_count
-
-        trainer = Person.objects.filter(id=trainer_id).first()
-        if trainer:
-            results.append(
-                {
-                    "trainer": trainer.full_name,
-                    "direct": direct_count,
-                    "second_gen": second_gen_count,
-                    "multiplier": round(multiplier, 2),
-                }
-            )
-
-    results.sort(key=lambda r: r["multiplier"], reverse=True)
-    return results[:limit]
+    return [
+        {
+            "trainer": r["trainer"],
+            "direct": r["direct"],
+            "second_gen": r["second_generation"],
+            "multiplier": round(r["multiplier"], 2),
+        }
+        for r in _cascade_rows()[:limit]
+    ]
 
 
 def kpi_reach_by_region(programme=None, since=None):
@@ -573,13 +724,13 @@ def kpi_reach_by_region(programme=None, since=None):
     ]
 
 
-def kpi_coverage_by_unit(programme=None):
+def kpi_coverage_by_unit(programme=None, since=None):
     """Coverage % per college/directorate - for a bar chart."""
     from apps.registry.models import OrgUnit
 
     results = []
-    for unit in OrgUnit.objects.filter(type__in=["college", "directorate"]):
-        cov = kpi_coverage(programme=programme, unit=unit)
+    for unit in _records(OrgUnit).filter(type__in=["college", "directorate"]):
+        cov = kpi_coverage(programme=programme, unit=unit, since=since)
         if cov["denominator"] > 0:
             results.append(
                 {
@@ -591,7 +742,7 @@ def kpi_coverage_by_unit(programme=None):
             )
 
     results.sort(key=lambda r: r["percent"] or 0, reverse=True)
-    return results 
+    return results
 
 
 def kpi_reach_by_session_region(programme=None, since=None):
@@ -603,30 +754,28 @@ def kpi_reach_by_session_region(programme=None, since=None):
         .annotate(people=Count("person_id", distinct=True))
         .order_by("-people")
     )
-    return [
-        {"region": row["session__region"], "people": row["people"]}
-        for row in rows
-    ]  
-    
-    
-    
+    return [{"region": row["session__region"], "people": row["people"]} for row in rows]
+
+
 def kpi_workshops_held(
-    programme=None, unit=None, since=None, until=None,
-    category=None, affiliation=None, partner_id=None,
+    programme=None,
+    unit=None,
+    since=None,
+    until=None,
+    category=None,
+    affiliation=None,
+    partner_id=None,
 ):
     """Total number of sessions delivered."""
-    from apps.sessions.models import Session
-    from django.utils import timezone
-    from datetime import datetime
 
-    qs = Session.objects.filter(
-        status__in=["closed", "open", "scheduled"]
-    )
+    from apps.sessions.models import Session
+
+    qs = _records(Session).filter(status="closed", end_at__lte=timezone.now())
 
     if programme:
         qs = qs.filter(programme=programme)
     if unit:
-        qs = qs.filter(host_unit=unit)
+        qs = qs.filter(host_unit_id__in=unit_descendants(unit.pk))
     if category:
         qs = qs.filter(attendances__person__category=category)
     if affiliation:
@@ -645,16 +794,26 @@ def kpi_workshops_held(
 
 
 def kpi_baseline_coverage(
-    programme=None, unit=None, since=None, until=None,
-    category=None, affiliation=None, partner_id=None,
+    programme=None,
+    unit=None,
+    since=None,
+    until=None,
+    category=None,
+    affiliation=None,
+    partner_id=None,
 ):
     """Percentage of Person records that have submitted a self-assessment."""
     from apps.passport.models import SelfAssessment
     from apps.registry.models import Person
 
-    person_qs = Person.objects.filter(is_anonymised=False)
+    person_qs = _records(Person).filter(is_anonymised=False, merged_into__isnull=True)
+    if programme:
+        person_qs = person_qs.filter(
+            attendances__session__programme=programme,
+            attendances__status__in=["partial", "completed"],
+        ).distinct()
     if unit:
-        person_qs = person_qs.filter(unit=unit)
+        person_qs = person_qs.filter(unit_id__in=unit_descendants(unit.pk))
     if category:
         person_qs = person_qs.filter(category=category)
     if affiliation:
@@ -669,14 +828,12 @@ def kpi_baseline_coverage(
     if total == 0:
         return {"count": 0, "total": 0, "percent": None}
 
-    assessments = SelfAssessment.objects.filter(status="submitted")
+    assessments = _records(SelfAssessment).filter(status="submitted")
     if since:
         assessments = assessments.filter(submitted_at__gte=since)
     if until:
         assessments = assessments.filter(submitted_at__lte=until)
-    assessed_person_ids = assessments.values_list(
-        "person_id", flat=True
-    ).distinct()
+    assessed_person_ids = assessments.values_list("person_id", flat=True).distinct()
     assessed = person_qs.filter(id__in=assessed_person_ids).count()
 
     return {
@@ -688,20 +845,24 @@ def kpi_baseline_coverage(
 
 def kpi_ai_coverage_by_college(since=None, until=None):
     """Percentage of each college's people with level 2+ on AI-01 to AI-04."""
+
     from apps.library.models import Competency
     from apps.passport.models import Evidence
     from apps.registry.models import OrgUnit, Person
-    from django.db.models import Count, Q
 
     ai_codes = ["AI-01", "AI-02", "AI-03", "AI-04"]
     ai_competencies = Competency.objects.filter(code__in=ai_codes)
 
     # People with level 2+ evidence on any AI competency
-    evidence_qs = Evidence.objects.filter(
+    evidence_qs = (
+        valid_evidence(_records(Evidence))
+        .filter(
             competency__in=ai_competencies,
             level__ordinal__gte=2,
             status="valid",
-        ).exclude(type="self")
+        )
+        .exclude(type="self")
+    )
     if since:
         evidence_qs = evidence_qs.filter(assessed_at__gte=since)
     if until:
@@ -711,49 +872,63 @@ def kpi_ai_coverage_by_college(since=None, until=None):
     )
 
     rows = []
-    colleges = OrgUnit.objects.filter(type="college", active=True).order_by("name")
+    colleges = _records(OrgUnit).filter(type="college", active=True).order_by("name")
 
     for college in colleges:
         # Count people in this college (or its child units)
-        college_unit_ids = [college.id] + list(
-            OrgUnit.objects.filter(parent=college).values_list("id", flat=True)
+        college_unit_ids = unit_descendants(college.pk)
+        total_people = (
+            _records(Person)
+            .filter(
+                unit_id__in=college_unit_ids,
+                is_anonymised=False,
+                merged_into__isnull=True,
+            )
+            .count()
         )
-        total_people = Person.objects.filter(
-            unit_id__in=college_unit_ids, is_anonymised=False
-        ).count()
 
         if total_people == 0:
             continue
 
-        qualified_people = Person.objects.filter(
-            unit_id__in=college_unit_ids,
-            is_anonymised=False,
-            id__in=qualified_person_ids,
-        ).count()
+        qualified_people = (
+            _records(Person)
+            .filter(
+                unit_id__in=college_unit_ids,
+                is_anonymised=False,
+                merged_into__isnull=True,
+                id__in=qualified_person_ids,
+            )
+            .count()
+        )
 
-        rows.append({
-            "unit": college.short_name or college.name,
-            "people": qualified_people,
-            "total": total_people,
-            "percent": round(qualified_people / total_people * 100),
-        })
+        rows.append(
+            {
+                "unit": college.short_name or college.name,
+                "people": qualified_people,
+                "total": total_people,
+                "percent": round(qualified_people / total_people * 100),
+            }
+        )
 
     return rows
 
 
 def kpi_attendances_by_month(
-    programme=None, unit=None, since=None, until=None,
-    category=None, affiliation=None, partner_id=None,
+    programme=None,
+    unit=None,
+    since=None,
+    until=None,
+    category=None,
+    affiliation=None,
+    partner_id=None,
 ):
     """Completed attendances per month (for the line chart)."""
-    from django.db.models.functions import TruncMonth
     from django.db.models import Count
+    from django.db.models.functions import TruncMonth
 
     qs = _attendance_qs(
         programme, unit, since, until, category, affiliation, partner_id
-    ).filter(
-        status="completed"
-    )
+    ).filter(status="completed")
     rows = (
         qs.annotate(month=TruncMonth("check_in_at"))
         .values("month")
@@ -764,25 +939,42 @@ def kpi_attendances_by_month(
     result = []
     for row in rows:
         if row["month"]:
-            result.append({
-                "month": row["month"].strftime("%b"),
-                "count": row["count"],
-            })
-    return result   
+            result.append(
+                {
+                    "month": row["month"].strftime("%b"),
+                    "count": row["count"],
+                }
+            )
+    return result
 
 
 def kpi_csat_trend(
-    programme=None, unit=None, since=None, until=None,
-    category=None, affiliation=None, partner_id=None,
+    programme=None,
+    unit=None,
+    since=None,
+    until=None,
+    category=None,
+    affiliation=None,
+    partner_id=None,
 ):
     """Monthly mean exit-survey CSAT for the dashboard trend chart."""
     from django.db.models.functions import TruncMonth
 
-    qs = SurveyResponse.objects.filter(type="exit", csat__isnull=False)
+    qs = (
+        _records(SurveyResponse)
+        .filter(
+            type="exit",
+            csat__isnull=False,
+            attendance__status="completed",
+            attendance__person__is_anonymised=False,
+            attendance__person__merged_into__isnull=True,
+        )
+        .exclude(attendance__session__status="cancelled")
+    )
     if programme:
         qs = qs.filter(attendance__session__programme=programme)
     if unit:
-        qs = qs.filter(attendance__person__unit=unit)
+        qs = qs.filter(attendance__person__unit_id__in=unit_descendants(unit.pk))
     if category:
         qs = qs.filter(attendance__person__category=category)
     if affiliation:
@@ -815,17 +1007,20 @@ def kpi_csat_trend(
 
 
 def kpi_progression_by_domain(
-    programme=None, unit=None, since=None, until=None,
-    category=None, affiliation=None, partner_id=None,
+    programme=None,
+    unit=None,
+    since=None,
+    until=None,
+    category=None,
+    affiliation=None,
+    partner_id=None,
 ):
     """Mean verified competency-level change, grouped by domain."""
-    qs = Evidence.objects.filter(status="valid").exclude(type="self")
+    qs = valid_evidence(_records(Evidence)).filter(status="valid").exclude(type="self")
     if programme:
-        qs = qs.filter(
-            competency__in=programme.competency_targets.values("competency")
-        )
+        qs = qs.filter(competency__in=programme.competency_targets.values("competency"))
     if unit:
-        qs = qs.filter(person__unit=unit)
+        qs = qs.filter(person__unit_id__in=unit_descendants(unit.pk))
     if category:
         qs = qs.filter(person__category=category)
     if affiliation:
@@ -841,23 +1036,32 @@ def kpi_progression_by_domain(
         qs = qs.filter(assessed_at__lte=until)
 
     changes = {}
-    rows = qs.values(
-        "person_id", "competency_id", "competency__domain__name"
-    ).annotate(first=Min("level__ordinal"), last=Max("level__ordinal"))
-    for row in rows:
-        if row["first"] == row["last"]:
-            continue
-        domain = row["competency__domain__name"] or "Unassigned"
-        changes.setdefault(domain, []).append(row["last"] - row["first"])
+    for row, delta in _progression_rows(qs):
+        key = (
+            row["competency__domain_id"],
+            row["competency__domain__name"] or "Unassigned",
+        )
+        item = changes.setdefault(key, {"deltas": [], "people": set()})
+        item["deltas"].append(delta)
+        item["people"].add(row["person_id"])
     return [
-        {"domain": domain, "mean_delta": round(sum(values) / len(values), 2), "people": len(values)}
-        for domain, values in sorted(changes.items())
+        {
+            "domain": name,
+            "mean_delta": round(sum(item["deltas"]) / len(item["deltas"]), 2),
+            "people": len(item["people"]),
+        }
+        for (_, name), item in sorted(changes.items())
     ]
 
 
 def kpi_coverage_heatmap(
-    programme=None, unit=None, since=None, until=None,
-    category=None, affiliation=None, partner_id=None,
+    programme=None,
+    unit=None,
+    since=None,
+    until=None,
+    category=None,
+    affiliation=None,
+    partner_id=None,
 ):
     """Verified level-2 coverage for each unit and competency domain."""
     from apps.library.models import Domain
@@ -866,13 +1070,15 @@ def kpi_coverage_heatmap(
     if affiliation == "external":
         # The SRS coverage measure uses internal unit headcounts as its denominator.
         return []
-    units = OrgUnit.objects.filter(type__in=["college", "directorate"])
+    units = _records(OrgUnit).filter(type__in=["college", "directorate"])
     if unit:
         units = units.filter(pk=unit.pk)
     domains = Domain.objects.filter(status__in=["active", "published"])
-    evidence = Evidence.objects.filter(
-        status="valid", level__ordinal__gte=2
-    ).exclude(type="self")
+    evidence = (
+        valid_evidence(_records(Evidence))
+        .filter(status="valid", level__ordinal__gte=2)
+        .exclude(type="self")
+    )
     if programme:
         evidence = evidence.filter(
             competency__in=programme.competency_targets.values("competency")
@@ -892,7 +1098,7 @@ def kpi_coverage_heatmap(
     if until:
         evidence = evidence.filter(assessed_at__lte=until)
 
-    headcounts = UnitHeadcount.objects.all()
+    headcounts = _records(UnitHeadcount).all()
     if category:
         headcounts = headcounts.filter(category=category)
     if since:
@@ -902,35 +1108,47 @@ def kpi_coverage_heatmap(
 
     result = []
     for org_unit in units.distinct():
-        denominator = headcounts.filter(unit=org_unit).aggregate(
-            total=Max("headcount")
-        )["total"] or 0
+        denominator = _headcount_total(
+            headcounts, org_unit, since, until, category, affiliation
+        )
         if not denominator:
             continue
         for domain in domains.distinct():
-            people = evidence.filter(
-                person__unit=org_unit, competency__domain=domain
-            ).values("person_id").distinct().count()
-            result.append({
-                "unit": org_unit.name,
-                "domain": domain.name,
-                "people": people,
-                "total": denominator,
-                "percent": round(people / denominator * 100),
-            })
+            people = (
+                evidence.filter(
+                    person__unit_id__in=unit_descendants(org_unit.pk),
+                    competency__domain=domain,
+                    person__affiliation__in=["staff", "student"],
+                )
+                .values("person_id")
+                .distinct()
+                .count()
+            )
+            result.append(
+                {
+                    "unit": org_unit.name,
+                    "domain": domain.name,
+                    "people": people,
+                    "total": denominator,
+                    "percent": round(people / denominator * 100),
+                }
+            )
     return result
 
 
 def kpi_external_reach(
-    programme=None, unit=None, since=None, until=None,
-    category=None, affiliation=None, partner_id=None,
+    programme=None,
+    unit=None,
+    since=None,
+    until=None,
+    category=None,
+    affiliation=None,
+    partner_id=None,
 ):
     """External participant reach grouped by organisation region and type."""
     if affiliation and affiliation != "external":
         return []
-    qs = _attendance_qs(
-        programme, unit, since, until, category, "external", partner_id
-    )
+    qs = _attendance_qs(programme, unit, since, until, category, "external", partner_id)
     rows = (
         qs.exclude(person__organisation__isnull=True)
         .values("person__organisation__region", "person__organisation__type")
@@ -948,87 +1166,32 @@ def kpi_external_reach(
 
 
 def kpi_cascade_by_trainer(
-    programme=None, since=None, until=None,
-    category=None, affiliation=None, partner_id=None, limit=10,
+    programme=None,
+    since=None,
+    until=None,
+    category=None,
+    affiliation=None,
+    partner_id=None,
+    limit=10,
 ):
-    """Top trainers by direct plus second-generation reach multiplier."""
-    direct = Facilitation.objects.select_related("person", "session__programme")
-    if programme:
-        direct = direct.filter(session__programme=programme)
-    if category:
-        direct = direct.filter(person__category=category)
-    if affiliation:
-        direct = direct.filter(person__affiliation=affiliation)
-    if partner_id:
-        direct = direct.filter(
-            Q(session__partners__partner_id=partner_id)
-            | Q(session__programme__partners__partner_id=partner_id)
-        )
-    if since:
-        direct = direct.filter(session__start_at__gte=since)
-    if until:
-        direct = direct.filter(session__start_at__lte=until)
-
-    results = []
-    processed = set()
-    for facilitator in direct.distinct():
-        trainer_id = facilitator.person_id
-        programme_id = facilitator.session.programme_id
-        if (trainer_id, programme_id) in processed:
-            continue
-        processed.add((trainer_id, programme_id))
-        first_generation = Facilitation.objects.filter(
-            person_id=trainer_id, session__programme_id=programme_id
-        )
-        if since:
-            first_generation = first_generation.filter(session__start_at__gte=since)
-        if until:
-            first_generation = first_generation.filter(session__start_at__lte=until)
-        trainee_ids = list(
-            first_generation.values_list("session__attendances__person_id", flat=True)
-            .exclude(session__attendances__person_id__isnull=True)
-            .distinct()
-        )
-        trainee_ids = [person_id for person_id in trainee_ids if person_id != trainer_id]
-        direct_count = len(trainee_ids)
-        if not direct_count:
-            continue
-        second_generation = Facilitation.objects.filter(
-            person_id__in=trainee_ids, session__programme_id=programme_id
-        )
-        if since:
-            second_generation = second_generation.filter(session__start_at__gte=since)
-        if until:
-            second_generation = second_generation.filter(session__start_at__lte=until)
-        second_count = second_generation.values_list(
-            "session__attendances__person_id", flat=True
-        ).exclude(
-            session__attendances__person_id__isnull=True
-        ).exclude(
-            session__attendances__person_id__in=trainee_ids
-        ).exclude(
-            session__attendances__person_id=trainer_id
-        ).distinct().count()
-        results.append({
-            "trainer": facilitator.person.full_name,
-            "multiplier": round((direct_count + second_count) / direct_count, 2),
-            "direct": direct_count,
-            "second_generation": second_count,
-        })
-    return sorted(results, key=lambda row: row["multiplier"], reverse=True)[:limit]
-
+    return [
+        {**row, "multiplier": round(row["multiplier"], 2)}
+        for row in _cascade_rows(
+            programme, since, until, category, affiliation, partner_id
+        )[:limit]
+    ]
 
 
 def get_recommended_sessions(person, limit=3):
     """Find upcoming sessions that teach competencies the person is missing."""
-    from apps.sessions.models import Session
-    from apps.programmes.models import ProgrammeCompetency
     from apps.passport.models import Evidence
-    from django.utils import timezone
+    from apps.programmes.models import ProgrammeCompetency
+    from apps.sessions.models import Session
 
     # 1. Get all competencies the person has evidence for
     current_competencies = set(
-        Evidence.objects.filter(person=person, status="valid")
+        valid_evidence(_records(Evidence))
+        .filter(person=person, status="valid")
         .values_list("competency_id", flat=True)
         .distinct()
     )
@@ -1036,25 +1199,33 @@ def get_recommended_sessions(person, limit=3):
     # 2. Get all target competencies for the programmes they are involved in
     # For simplicity, we look at programmes where they have a TierStatus
     from apps.programmes.models import TierStatus
-    programme_ids = TierStatus.objects.filter(person=person).values_list("programme_id", flat=True)
-    
-    target_competencies = ProgrammeCompetency.objects.filter(
-        programme_id__in=programme_ids
-    ).values_list("competency_id", flat=True).distinct()
+
+    programme_ids = (
+        _records(TierStatus)
+        .filter(person=person)
+        .values_list("programme_id", flat=True)
+    )
+
+    target_competencies = (
+        ProgrammeCompetency.objects.filter(programme_id__in=programme_ids)
+        .values_list("competency_id", flat=True)
+        .distinct()
+    )
 
     # 3. The gaps are target competencies they don't have evidence for yet
     gaps = set(target_competencies) - current_competencies
 
     if not gaps:
-        return [] # No gaps found
+        return []  # No gaps found
 
     # 4. Find upcoming sessions that teach any of the gap competencies
     now = timezone.now()
     upcoming_sessions = (
-        Session.objects.filter(
+        _records(Session)
+        .filter(
             start_at__gte=now,
             status__in=["scheduled", "open"],
-            competencies__competency_id__in=gaps
+            competencies__competency_id__in=gaps,
         )
         .distinct()
         .order_by("start_at")[:limit]

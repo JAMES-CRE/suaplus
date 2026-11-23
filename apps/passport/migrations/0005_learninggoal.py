@@ -1,14 +1,16 @@
-from django.db import migrations, models
+from typing import ClassVar
+
 import django.db.models.deletion
+from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
 
-    dependencies = [
+    dependencies: ClassVar[list] = [
         ("passport", "0004_passportstampview"),
     ]
 
-    operations = [
+    operations: ClassVar[list] = [
         migrations.CreateModel(
             name="LearningGoal",
             fields=[

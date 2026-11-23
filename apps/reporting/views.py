@@ -1,19 +1,24 @@
 """Reporting views."""
-import json
 from datetime import date, datetime, time, timedelta
 
-from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 
-from apps.accounts.permissions import get_user_scopes, is_executive, is_super_admin
+from apps.accounts.permissions import (
+    aggregate_only,
+    can,
+    is_executive,
+    is_super_admin,
+    scope_records,
+    visible_memos,
+)
 from apps.core.models import AcademicPeriod
 from apps.programmes.models import Partner, Programme, TierStatus
 from apps.registry.models import OrgUnit, Person
-from apps.reporting.models import Memo
+from apps.reporting.access import scoped_reporting
 from apps.reporting.exports import dashboard_rows, export_report, suppress_small_counts
 from apps.reporting.services.kpis import (
     kpi_ai_coverage_by_college,
@@ -21,8 +26,8 @@ from apps.reporting.services.kpis import (
     kpi_baseline_coverage,
     kpi_cascade,
     kpi_cascade_by_trainer,
-    kpi_coverage_heatmap,
     kpi_coverage,
+    kpi_coverage_heatmap,
     kpi_csat,
     kpi_csat_trend,
     kpi_external_reach,
@@ -32,6 +37,7 @@ from apps.reporting.services.kpis import (
     kpi_reach,
     kpi_reach_by_unit,
     kpi_workshops_held,
+    suppress,
 )
 from apps.reporting.services.memo import generate_memo
 from apps.sessions.models import Attendance, Session
@@ -126,64 +132,33 @@ def _resolve_dashboard_period(request):
     }
 
 
-@login_required
-def dashboard_overview(request):
-    """KPI tiles and charts, scoped to the user's permissions."""
-    scopes = get_user_scopes(request.user)
-    all_data = is_super_admin(request.user) or is_executive(request.user)
-    programme_ids = {
-        scope.scope_id
-        for scope in scopes
-        if scope.role == "programme_owner"
-        and scope.scope_type == "programme"
-        and scope.scope_id is not None
-    }
-    unit_ids = {
-        scope.scope_id
-        for scope in scopes
-        if scope.role == "focal_person"
-        and scope.scope_type == "unit"
-        and scope.scope_id is not None
-    }
-    if not all_data and not programme_ids and not unit_ids:
+def _selected_record(request, queryset, key):
+    identifier = request.GET.get(key, "").strip()
+    if not identifier:
+        return None
+    if not identifier.isdecimal():
         raise PermissionDenied
+    record = queryset.filter(pk=identifier).first()
+    if record is None:
+        raise PermissionDenied
+    return record
 
-    if all_data:
-        programme_qs = Programme.objects.all()
-        unit_qs = OrgUnit.objects.all()
-    else:
-        programme_qs = Programme.objects.filter(pk__in=programme_ids)
-        unit_qs = OrgUnit.objects.filter(pk__in=unit_ids)
 
-    requested_programme = request.GET.get("programme")
-    requested_unit = request.GET.get("unit")
-    if requested_programme:
-        if not all_data and not programme_ids:
-            raise PermissionDenied
-        programme = programme_qs.filter(pk=requested_programme).first()
-        if not programme:
-            raise PermissionDenied
-    elif programme_ids and not all_data:
-        programme = programme_qs.order_by("pk").first()
-    else:
-        programme = None
-
-    if requested_unit:
-        if not all_data and not unit_ids and not programme_ids:
-            raise PermissionDenied
-        unit = unit_qs.filter(pk=requested_unit).first() if unit_ids else OrgUnit.objects.filter(pk=requested_unit).first()
-        if not unit:
-            raise PermissionDenied
-    elif unit_ids and not all_data:
-        unit = unit_qs.order_by("pk").first()
-    else:
-        unit = None
+@login_required
+@scoped_reporting("view_dashboard")
+def dashboard_overview(request):
+    """Scope every base KPI query before applying optional filters."""
+    all_data = is_super_admin(request.user) or is_executive(request.user)
+    programme_qs = scope_records(Programme.objects.all(), request.user, "view_dashboard")
+    unit_qs = scope_records(OrgUnit.objects.all(), request.user, "view_dashboard")
+    programme = _selected_record(request, programme_qs, "programme")
+    unit = _selected_record(request, unit_qs, "unit")
 
     programme_id = str(programme.id) if programme else ""
     unit_id = str(unit.id) if unit else ""
     category = request.GET.get("category", "").strip()
     valid_categories = list(
-        Person.objects.exclude(category="").order_by("category")
+        scope_records(Person.objects.all(), request.user, "view_dashboard").exclude(category="").order_by("category")
         .values_list("category", flat=True).distinct()
     )
     if category not in valid_categories:
@@ -193,11 +168,7 @@ def dashboard_overview(request):
     if affiliation not in valid_affiliations:
         affiliation = ""
     partner_id = request.GET.get("partner", "").strip()
-    partner_qs = Partner.objects.select_related("organisation")
-    if not all_data and programme_ids:
-        partner_qs = partner_qs.filter(programmes__programme_id__in=programme_ids)
-    elif not all_data and unit_ids:
-        partner_qs = partner_qs.filter(sessions__host_unit_id__in=unit_ids)
+    partner_qs = scope_records(Partner.objects.select_related("organisation"), request.user, "view_dashboard")
     partners = partner_qs.distinct().order_by("organisation__name", "role")
     partner = partners.filter(pk=partner_id).first() if partner_id else None
     if partner_id and partner is None:
@@ -218,22 +189,9 @@ def dashboard_overview(request):
     coverage = kpi_coverage(programme=programme, unit=unit, since=since, until=until, **scope_filters)
     progression = kpi_progression(programme=programme, unit=unit, since=since, until=until, **scope_filters)
     csat = kpi_csat(programme=programme, unit=unit, since=since, until=until, **scope_filters)
-    has_unit_only_scope = bool(unit_ids and not programme_ids and not all_data)
-    cascade = (
-        {"count": 0, "mean_multiplier": 0.0}
-        if has_unit_only_scope
-        else kpi_cascade(programme=programme, since=since, until=until, **scope_filters)
-    )
-    pipeline = (
-        {"Explorer": 0, "Practitioner": 0, "Associate": 0, "Certified": 0, "Master": 0}
-        if has_unit_only_scope
-        else kpi_pipeline(programme=programme, since=since, until=until, **scope_filters)
-    )
-    reach_by_unit = (
-        []
-        if has_unit_only_scope
-        else kpi_reach_by_unit(programme=programme, since=since, until=until, **scope_filters)
-    )
+    cascade = kpi_cascade(programme=programme, since=since, until=until, **scope_filters)
+    pipeline = kpi_pipeline(programme=programme, since=since, until=until, **scope_filters)
+    reach_by_unit = kpi_reach_by_unit(programme=programme, since=since, until=until, **scope_filters)
 
     # Compute new KPIs
     workshops_held = kpi_workshops_held(programme=programme, unit=unit, since=since, until=until, **scope_filters)
@@ -248,7 +206,7 @@ def dashboard_overview(request):
     external_reach = kpi_external_reach(
         programme=programme, unit=unit, since=since, until=until, **scope_filters
     )
-    cascade_by_trainer = [] if has_unit_only_scope else kpi_cascade_by_trainer(
+    cascade_by_trainer = [] if is_executive(request.user) and not is_super_admin(request.user) else kpi_cascade_by_trainer(
         programme=programme, since=since, until=until, **scope_filters
     )
 
@@ -298,13 +256,11 @@ def dashboard_overview(request):
 
     # Filter choices for the form
     programmes = programme_qs.filter(status="active").order_by("name")
-    if unit_ids and not programme_ids and not all_data:
-        programmes = Programme.objects.filter(
-            sessions__host_unit_id__in=unit_ids, status="active"
-        ).distinct().order_by("name")
     units = unit_qs.filter(type__in=["college", "directorate"]).order_by("name")
 
     export_format = request.GET.get("export", "").lower()
+    if export_format and not can(request.user, "export_reports"):
+        raise PermissionDenied
     if export_format:
         rows = dashboard_rows(dashboard_data)
         rows.extend(
@@ -378,31 +334,32 @@ def dashboard_overview(request):
             "calendar_years": period_data["calendar_years"],
             "quarters": period_data["quarters"],
             "counts_suppressed": counts_suppressed,
+            "can_export": can(request.user, "export_reports"),
         },
     )
 
 
 @login_required
+@scoped_reporting("view_dashboard")
 def drilldown(request, kpi):
-    """Drill-down list for a specific KPI."""
-    if not is_super_admin(request.user):
-        try:
-            roles = set(request.user.hub_account.roles.values_list("role", flat=True))
-        except AttributeError:
-            roles = set()
-        if "executive_viewer" not in roles:
-            messages.error(request, "You don't have permission to view drill-downs.")
-            return redirect("hub_home")
-
-    programme_id = request.GET.get("programme")
-    unit_id = request.GET.get("unit")
+    """Personal drill-down is scoped; executive-only access stays aggregated."""
+    programme_qs = scope_records(Programme.objects.all(), request.user, "view_dashboard")
+    unit_qs = scope_records(OrgUnit.objects.all(), request.user, "view_dashboard")
+    selected_programme = _selected_record(request, programme_qs, "programme")
+    selected_unit = _selected_record(request, unit_qs, "unit")
+    programme_id = selected_programme.pk if selected_programme else None
+    unit_id = selected_unit.pk if selected_unit else None
+    data_capability = "view_dashboard" if aggregate_only(request.user) else "view_people"
     
+    from django.http import Http404
+    if kpi not in {"reach", "pipeline"}:
+        raise Http404("Unknown drill-down")
     rows = []
     title = kpi.title()
 
     if kpi == "reach":
         title = "Reach"
-        qs = Attendance.objects.filter(
+        qs = scope_records(Attendance.objects.all(), request.user, data_capability).filter(
             status__in=["completed", "partial"]
         ).select_related("person", "session__programme")
 
@@ -411,19 +368,24 @@ def drilldown(request, kpi):
         if unit_id:
             qs = qs.filter(person__unit_id=unit_id)
 
-        seen = set()
-        for a in qs.order_by("-check_in_at"):
-            if a.person_id not in seen:
-                seen.add(a.person_id)
-                rows.append({
-                    "name": a.person.full_name,
-                    "detail": a.session.programme.name if a.session.programme else "—",
-                    "when": a.check_in_at,
-                })
+        if aggregate_only(request.user):
+            from django.db.models import Count
+            rows = [{"name": row["session__programme__name"], "detail": f"{suppress(row['people'])} people", "when": None}
+                    for row in qs.values("session__programme__name").annotate(people=Count("person_id", distinct=True))]
+        else:
+            seen = set()
+            for a in qs.order_by("-check_in_at"):
+                if a.person_id not in seen:
+                    seen.add(a.person_id)
+                    rows.append({
+                        "name": a.person.full_name,
+                        "detail": a.session.programme.name if a.session.programme else "—",
+                        "when": a.check_in_at,
+                    })
 
     elif kpi == "pipeline":
         title = "Trainer Pipeline"
-        qs = TierStatus.objects.filter(
+        qs = scope_records(TierStatus.objects.all(), request.user, data_capability).filter(
             status="approved"
         ).select_related("person", "programme")
 
@@ -432,22 +394,26 @@ def drilldown(request, kpi):
         if unit_id:
             qs = qs.filter(person__unit_id=unit_id)
 
-        for ts in qs.order_by("-approved_at"):
-            rows.append({
-                "name": ts.person.full_name,
-                "detail": f"{ts.get_tier_display()} in {ts.programme.name}",
-                "when": ts.approved_at,
-            })
+        if aggregate_only(request.user):
+            from django.db.models import Count
+            rows = [{"name": row["programme__name"], "detail": f"Tier {row['tier']}: {suppress(row['people'])} people", "when": None}
+                    for row in qs.values("programme__name", "tier").annotate(people=Count("person_id", distinct=True))]
+        else:
+            for ts in qs.order_by("-approved_at"):
+                rows.append({
+                    "name": ts.person.full_name,
+                    "detail": f"{ts.get_tier_display()} in {ts.programme.name}",
+                    "when": ts.approved_at,
+                })
 
-    selected_programme = Programme.objects.filter(id=programme_id).first() if programme_id else None
-    selected_unit = OrgUnit.objects.filter(id=unit_id).first() if unit_id else None
-
-    counts_suppressed = is_executive(request.user) and not is_super_admin(request.user)
-    small_group_suppressed = counts_suppressed and 0 < len(rows) < 5
+    counts_suppressed = aggregate_only(request.user)
+    small_group_suppressed = counts_suppressed and 0 < qs.values("person_id").distinct().count() < 5
     if small_group_suppressed:
         rows = []
 
     export_format = request.GET.get("export", "").lower()
+    if export_format and not can(request.user, "export_reports"):
+        raise PermissionDenied
     if export_format:
         export_rows = [
             (
@@ -489,18 +455,9 @@ def drilldown(request, kpi):
 
 
 @login_required
+@scoped_reporting("export_reports")
 def memo_list(request):
-    """List of all generated memos the user can see."""
-    if not is_super_admin(request.user):
-        try:
-            roles = set(request.user.hub_account.roles.values_list("role", flat=True))
-        except AttributeError:
-            roles = set()
-        if "executive_viewer" not in roles:
-            messages.error(request, "You don't have permission to view memos.")
-            return redirect("dashboard")
-
-    memos = Memo.objects.all().select_related("created_by").order_by("-created_at")
+    memos = visible_memos(request.user).select_related("created_by").order_by("-created_at")
 
     return render(
         request,
@@ -510,18 +467,9 @@ def memo_list(request):
 
 
 @login_required
+@scoped_reporting("export_reports")
 def memo_generate(request):
-    """Form to generate a new executive memo."""
-    if not is_super_admin(request.user):
-        try:
-            roles = set(request.user.hub_account.roles.values_list("role", flat=True))
-        except AttributeError:
-            roles = set()
-        if "executive_viewer" not in roles:
-            messages.error(request, "You don't have permission to generate memos.")
-            return redirect("dashboard")
-
-    programmes = Programme.objects.filter(status="active").order_by("name")
+    programmes = scope_records(Programme.objects.filter(status="active"), request.user, "export_reports").order_by("name")
 
     if request.method == "POST":
         period_label = request.POST.get("period_label", "").strip()
@@ -538,7 +486,9 @@ def memo_generate(request):
 
         programme = None
         if programme_id:
-            programme = Programme.objects.filter(id=programme_id).first()
+            if not programme_id.isdecimal():
+                raise PermissionDenied
+            programme = get_object_or_404(programmes, id=programme_id)
 
         since = None
         if since_str:
@@ -573,29 +523,23 @@ def memo_generate(request):
 
 
 @login_required
+@scoped_reporting("export_reports")
 def memo_detail(request, memo_id):
-    """Read-only view of a generated memo."""
-    if not is_super_admin(request.user):
-        try:
-            roles = set(request.user.hub_account.roles.values_list("role", flat=True))
-        except AttributeError:
-            roles = set()
-        if "executive_viewer" not in roles:
-            messages.error(request, "You don't have permission to view memos.")
-            return redirect("dashboard")
-
-    memo = get_object_or_404(Memo, id=memo_id)
+    memo = get_object_or_404(visible_memos(request.user), id=memo_id)
     counts_suppressed = is_executive(request.user) and not is_super_admin(request.user)
     display_figures = (
         suppress_small_counts(memo.figures) if counts_suppressed else memo.figures
     )
 
+    display_narrative = memo.scope.get("executive_narrative", "This legacy memo requires a privacy review.") if counts_suppressed else memo.narrative
     export_format = request.GET.get("export", "").lower()
+    if export_format and not can(request.user, "export_reports"):
+        raise PermissionDenied
     if export_format:
         rows = dashboard_rows(display_figures)
         rows.extend(
             ("Narrative", f"Line {index}", line)
-            for index, line in enumerate(memo.narrative.splitlines(), start=1)
+            for index, line in enumerate(display_narrative.splitlines(), start=1)
         )
         try:
             return export_report(
@@ -610,7 +554,7 @@ def memo_detail(request, memo_id):
             return redirect("memo_detail", memo_id=memo.id)
 
     previous_versions = (
-        Memo.objects.filter(
+        visible_memos(request.user).filter(
             period_label=memo.period_label,
             scope=memo.scope,
         )
@@ -623,8 +567,10 @@ def memo_detail(request, memo_id):
         "reporting/memo_detail.html",
         {
             "memo": memo,
+            "display_narrative": display_narrative,
             "display_figures": display_figures,
             "counts_suppressed": counts_suppressed,
+            "can_export": can(request.user, "export_reports"),
             "previous_versions": previous_versions,
         },
     )

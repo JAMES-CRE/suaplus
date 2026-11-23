@@ -28,7 +28,7 @@ class RegistrySyncTests(TestCase):
             api_url="https://registry.example/api", api_key="test-key", http_get=get
         )
 
-        self.assertEqual(result, {"created": 2, "updated": 1, "skipped": 1, "total": 4})
+        self.assertEqual(result, {"created": 2, "updated": 1, "skipped": 1, "conflicts": 0, "total": 4})
         existing.refresh_from_db()
         self.assertEqual(existing.full_name, "Updated Name")
         self.assertEqual(existing.rank_or_level, "Senior")

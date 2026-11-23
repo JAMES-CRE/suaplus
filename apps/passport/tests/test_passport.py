@@ -1,15 +1,16 @@
 import hashlib
 import secrets
-from datetime import date
+from datetime import UTC, date, timedelta
+from unittest.mock import patch
 
 import pytest
 from django.contrib.auth import get_user_model
 from django.core.cache import cache
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.urls import reverse
-from unittest.mock import patch
 
 from apps.accounts.models import RoleAssignment, UserAccount
+from apps.accounts.tests.helpers import force_login_with_mfa
 from apps.library.models import (
     CertificationCatalogue,
     CertificationCompetency,
@@ -18,15 +19,13 @@ from apps.library.models import (
     Framework,
     Level,
 )
-from apps.passport.models import Credential, Evidence, LearningGoal
 from apps.passport.forms import CredentialSubmitForm
 from apps.passport.linking import issue_passport_link
+from apps.passport.models import Credential, Evidence, LearningGoal
 from apps.passport.services import expire_due_records
 from apps.passport.views import _issue_badge_for_credential
 from apps.programmes.models import Programme
-from apps.registry.models import PassportToken
-from apps.registry.models import Person
-from apps.registry.models import OrgUnit
+from apps.registry.models import OrgUnit, PassportToken, Person
 
 
 @pytest.fixture
@@ -87,9 +86,14 @@ def test_issuing_a_fresh_link_revokes_the_previous_link(client, person):
 
 
 @pytest.mark.django_db
-def test_passport_holder_can_add_and_complete_a_learning_goal(
+def test_signed_in_passport_owner_can_add_and_complete_a_learning_goal(
     client, passport_token, person
 ):
+    person.title, person.category, person.unit_other = "Dr.", "academic", "KEC"
+    person.save()
+    user = get_user_model().objects.create_user(username="goal-owner", email=person.email)
+    UserAccount.objects.create(user=user, person=person)
+    client.force_login(user)
     response = client.post(
         reverse("passport_goals", args=[passport_token]),
         {"action": "add", "title": "Complete the data pathway", "target_date": "2026-12-01"},
@@ -147,6 +151,101 @@ def test_badge_is_issued_once_for_an_approved_catalogue_credential(person):
 
 
 @pytest.mark.django_db
+def test_passport_shows_share_action_for_an_approved_badge(
+    client, passport_token, person
+):
+    Credential.objects.create(
+        person=person,
+        kind="knust_badge",
+        source="staff_recorded",
+        title="Shareable badge",
+        issued_at=date(2026, 1, 1),
+        review_status="approved",
+        badge_json={"jwt": "shareable-badge-token"},
+    )
+
+    response = client.get(reverse("passport", args=[passport_token]))
+
+    assert response.status_code == 200
+    assert b"Share badge" in response.content
+    assert b"/badges/verify/shareable-badge-token/" in response.content
+
+
+@pytest.mark.django_db
+def test_passport_recommends_session_for_missing_active_programme_target(
+    client, passport_token, person
+):
+    from django.utils import timezone
+
+    from apps.sessions.models import Session, SessionCompetency
+
+    framework = Framework.objects.create(
+        code="RECOMMEND", name="Recommendation framework", is_knust=True
+    )
+    domain = Domain.objects.create(
+        framework=framework, code="RC", name="Recommended domain"
+    )
+    competency = Competency.objects.create(
+        framework=framework, domain=domain, code="RC-01", title="Recommended skill"
+    )
+    programme = Programme.objects.create(name="Recommended programme")
+    from apps.programmes.models import ProgrammeCompetency
+
+    ProgrammeCompetency.objects.create(
+        programme=programme, competency=competency, target_level=2
+    )
+    now = timezone.now()
+    session = Session.objects.create(
+        programme=programme,
+        title="Recommended workshop",
+        start_at=now + timedelta(days=7),
+        end_at=now + timedelta(days=7, hours=2),
+        mode="online",
+    )
+    SessionCompetency.objects.create(session=session, competency=competency)
+
+    response = client.get(reverse("passport", args=[passport_token]))
+
+    assert response.status_code == 200
+    assert b"Recommended workshop" in response.content
+    assert b"Recommended to raise RC-01" in response.content
+
+
+@pytest.mark.django_db
+def test_passport_stamp_timeline_shows_programme_and_completion(
+    client, passport_token, person
+):
+    from django.utils import timezone
+
+    from apps.sessions.models import Attendance, Session
+
+    programme = Programme.objects.create(name="Timeline programme")
+    start = timezone.now() - timedelta(days=1)
+    session = Session.objects.create(
+        programme=programme,
+        title="Timeline workshop",
+        start_at=start,
+        end_at=start + timedelta(hours=2),
+        mode="in_person",
+    )
+    Attendance.objects.create(
+        person=person,
+        session=session,
+        method="manual",
+        status="completed",
+        check_in_at=start,
+        check_out_at=start + timedelta(hours=2),
+    )
+
+    response = client.get(reverse("passport", args=[passport_token]))
+
+    assert response.status_code == 200
+    assert b"Timeline workshop" in response.content
+    assert b"Timeline programme" in response.content
+    assert b"Completed" in response.content
+
+
+@pytest.mark.django_db
 def test_expiry_sweep_expires_due_credentials_and_evidence(person):
     framework = Framework.objects.create(code="EXPIRY", name="Expiry framework", is_knust=True)
     level = Level.objects.create(framework=framework, ordinal=1, label="Aware")
@@ -176,8 +275,9 @@ def test_expiry_sweep_expires_due_credentials_and_evidence(person):
         person=person,
         competency=competency,
         level=level,
-        type="attendance",
-        source_type="",
+        type="external",
+        source_type="credential",
+        credential=expired_credential,
         expires_at=date(2026, 1, 1),
     )
 
@@ -241,6 +341,40 @@ def test_email_masked(client, passport_token):
 
 
 @pytest.mark.django_db
+def test_populated_transcript_pdf_renders_all_table_sections(client, passport_token, person):
+    from django.utils import timezone
+
+    from apps.sessions.models import Attendance, Session
+
+    framework = Framework.objects.create(code="PDF", name="PDF framework", is_knust=True)
+    domain = Domain.objects.create(framework=framework, code="AI", name="AI competency")
+    competency = Competency.objects.create(framework=framework, domain=domain, code="AI-01", title="AI foundations")
+    level = Level.objects.create(framework=framework, ordinal=3, label="Proficient")
+    credential = Credential.objects.create(
+        person=person, kind="external", source="staff_recorded", issuer="Test issuer",
+        title="Test certificate", issued_at=date(2026, 1, 1), review_status="approved",
+    )
+    programme = Programme.objects.create(name="Transcript programme")
+    start = timezone.now() - timedelta(days=1)
+    session = Session.objects.create(
+        programme=programme, title="Transcript workshop", start_at=start,
+        end_at=start + timedelta(hours=2), mode="in_person", status="closed",
+    )
+    Attendance.objects.create(
+        person=person, session=session, method="manual", status="completed",
+        check_in_at=start, check_out_at=start + timedelta(hours=2),
+    )
+    Evidence.objects.create(
+        person=person, competency=competency, level=level, credential=credential,
+        type="external", source_type="credential", session=session,
+    )
+    response = client.get(reverse("passport_transcript_pdf", args=[passport_token]))
+    assert response.status_code == 200
+    assert response["Content-Type"] == "application/pdf"
+    assert response.content.startswith(b"%PDF-")
+
+
+@pytest.mark.django_db
 def test_passport_transcript_pdf_downloads(client, passport_token):
     response = client.get(reverse("passport_transcript_pdf", args=[passport_token]))
 
@@ -275,7 +409,7 @@ def test_reviewer_cannot_approve_own_credential_submission(client):
         issued_at=date(2026, 1, 1),
         verification_url="https://example.org/verify",
     )
-    client.force_login(user)
+    force_login_with_mfa(client, user)
 
     response = client.post(
         reverse("credential_review_detail", args=[credential.id]),
@@ -317,7 +451,7 @@ def test_reviewer_cannot_open_credential_outside_assigned_scope(client):
         issued_at=date(2026, 1, 1),
         verification_url="https://example.org/verify",
     )
-    client.force_login(user)
+    force_login_with_mfa(client, user)
 
     response = client.get(
         reverse("credential_review_detail", args=[credential.id])
@@ -373,15 +507,16 @@ def test_resend_ip_limit_allows_ten_requests_per_hour(client):
 
 @pytest.mark.django_db
 def test_correction_request_is_routed_to_selected_session_facilitators(client, passport_token, person):
-    from datetime import datetime, timezone as dt_timezone
+    from datetime import datetime
+
     from apps.sessions.models import Attendance, Facilitation, Session
 
     programme = Programme.objects.create(name="Passport correction programme")
     session = Session.objects.create(
         programme=programme,
         title="Passport correction workshop",
-        start_at=datetime(2026, 10, 1, 9, tzinfo=dt_timezone.utc),
-        end_at=datetime(2026, 10, 1, 10, tzinfo=dt_timezone.utc),
+        start_at=datetime(2026, 10, 1, 9, tzinfo=UTC),
+        end_at=datetime(2026, 10, 1, 10, tzinfo=UTC),
         mode="in_person",
     )
     Attendance.objects.create(
@@ -432,7 +567,7 @@ def test_credential_can_be_returned_for_information_with_comment(client):
         issued_at=date(2026, 1, 1),
         verification_url="https://example.org/verify",
     )
-    client.force_login(user)
+    force_login_with_mfa(client, user)
     url = reverse("credential_review_detail", args=[credential.id])
 
     client.post(url, {"decision": "returned", "comment": ""})
@@ -478,7 +613,7 @@ def test_reviewer_can_mark_credential_in_review_and_notify_participant(client):
         issued_at=date(2026, 1, 1),
         verification_url="https://example.org/verify",
     )
-    client.force_login(user)
+    force_login_with_mfa(client, user)
 
     with patch("apps.passport.views.send_notification") as send_notification:
         response = client.post(
@@ -522,7 +657,7 @@ def test_owner_can_update_and_resubmit_returned_credential(client):
         review_status="returned",
         review_note="Please attach the certificate.",
     )
-    client.force_login(user)
+    force_login_with_mfa(client, user)
     url = f"{reverse('credential_submit')}?resubmit={credential.id}"
 
     page = client.get(url)

@@ -1,7 +1,7 @@
 # Create your models here.
 """Accounts models for Hub users and their scoped roles."""
+from typing import ClassVar
 
-from django.db import models
 from django.conf import settings
 from django.db import models
 
@@ -11,7 +11,7 @@ from apps.registry.models import Person
 class UserAccount(models.Model):
     """A Hub user. Only a few hundred people have one."""
 
-    AUTH_METHOD_CHOICES = [
+    AUTH_METHOD_CHOICES: ClassVar[list] = [
         ("google", "Google sign-in"),
         ("otp", "Email one-time code"),
     ]
@@ -50,7 +50,7 @@ class UserAccount(models.Model):
 class RoleAssignment(models.Model):
     """Which role a Hub user holds, and at what scope."""
 
-    ROLE_CHOICES = [
+    ROLE_CHOICES: ClassVar[list] = [
         ("participant", "Participant"),
         ("associate_trainer", "Associate Trainer"),
         ("facilitator", "Facilitator"),
@@ -62,7 +62,7 @@ class RoleAssignment(models.Model):
         ("library_curator", "Library Curator"),
     ]
 
-    SCOPE_TYPE_CHOICES = [
+    SCOPE_TYPE_CHOICES: ClassVar[list] = [
         ("own", "Own record only"),
         ("session", "Session"),
         ("programme", "Programme"),
@@ -93,16 +93,34 @@ class RoleAssignment(models.Model):
     granted_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        ordering = ["-granted_at"]
-        constraints = [
+        ordering: ClassVar[list] = ["-granted_at"]
+        constraints: ClassVar[list] = [
             models.UniqueConstraint(
                 fields=["user_account", "role", "scope_type", "scope_id"],
                 name="uniq_role_scope",
             ),
         ]
-        indexes = [
+        indexes: ClassVar[list] = [
             models.Index(fields=["user_account", "role"]),
         ]
+
+    def clean(self):
+        from django.apps import apps
+        from django.core.exceptions import ValidationError
+
+        from apps.accounts.permissions import ROLE_SCOPES
+
+        super().clean()
+        if self.scope_type not in ROLE_SCOPES.get(self.role, set()):
+            raise ValidationError({"scope_type": "This scope is not permitted for the selected role."})
+        if self.scope_type in {"own", "all"}:
+            if self.scope_id is not None:
+                raise ValidationError({"scope_id": "Own/all scopes must not have an object ID."})
+        else:
+            targets = {"unit": "registry.OrgUnit", "programme": "programmes.Programme", "session": "training.Session", "organisation": "registry.Organisation"}
+            model = apps.get_model(targets[self.scope_type])
+            if self.scope_id is None or not model.objects.filter(pk=self.scope_id).exists():
+                raise ValidationError({"scope_id": "Choose an existing object for this scope."})
 
     def __str__(self):
         scope = f"{self.scope_type}:{self.scope_id}" if self.scope_id else self.scope_type

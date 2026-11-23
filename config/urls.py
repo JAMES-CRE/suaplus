@@ -1,5 +1,4 @@
 from django.contrib import admin
-from django.contrib.auth import views as auth_views
 from django.urls import include, path
 from django.views.generic import RedirectView
 
@@ -10,7 +9,9 @@ from apps.core.views import health_check, landing_page
 from apps.imports import views as imports_views
 from apps.library import views as library_views
 from apps.passport import views as passport_views
+from apps.passport.internal_views import internal_assessment, badge_public_key
 from apps.programmes import views as programmes_views
+from apps.registry import views as registry_views
 from apps.reporting import views as reporting_views
 from apps.sessions import views as sessions_views
 
@@ -22,6 +23,8 @@ urlpatterns = [
     path("login/", RedirectView.as_view(url="/accounts/login/", permanent=False), name="login"),
 
     path("accounts/cancel-code/", accounts_views.cancel_login_code, name="cancel_login_code"),
+    path("identity-review/", registry_views.identity_review_list, name="identity_review_list"),
+    path("identity-review/<int:conflict_id>/", registry_views.identity_review_detail, name="identity_review_detail"),
     path("people/", accounts_views.person_list, name="person_list"),
 
     # Public check-in (no login)
@@ -36,6 +39,8 @@ urlpatterns = [
     path("p/<str:token>/", passport_views.passport_view, name="passport"),
     path("sessions/", sessions_views.session_list, name="session_list"),
     path("sessions/create/", sessions_views.session_create, name="session_create"),
+    path("sessions/<int:session_id>/edit/", sessions_views.session_edit, name="session_edit"),
+    path("sessions/<int:session_id>/attendance/<int:attendance_id>/confirm/", sessions_views.attendance_confirm, name="attendance_confirm"),
     path("sessions/<int:session_id>/console/", sessions_views.session_console, name="session_console"),
     path("sessions/<int:session_id>/close/", sessions_views.session_close, name="session_close"),
     path("sessions/<int:session_id>/qr.json", sessions_views.session_qr_json, name="session_qr_json"),
@@ -44,6 +49,8 @@ urlpatterns = [
     path("memos/", reporting_views.memo_list, name="memo_list"),
     path("memos/generate/", reporting_views.memo_generate, name="memo_generate"),
     path("memos/<int:memo_id>/", reporting_views.memo_detail, name="memo_detail"),
+    path("credentials/<int:credential_id>/file/", passport_views.credential_file, name="credential_file"),
+    path("credentials/internal/<int:attendance_id>/", internal_assessment, name="internal_assessment"),
     path("credentials/submit/", passport_views.credential_submit, name="credential_submit"),
     path("credentials/review/", passport_views.credential_review_queue, name="credential_review_queue"),
     path("credentials/review/<int:credential_id>/", passport_views.credential_review_detail, name="credential_review_detail"),
@@ -51,6 +58,9 @@ urlpatterns = [
     path("sas/confirm/<str:token>/", passport_views.sas_confirm, name="sas_confirm"),
     path("import/upload/", imports_views.import_upload, name="import_upload"),
     path("import/preview/", imports_views.import_preview, name="import_preview"),
+    path("import/history/<int:session_id>/", imports_views.import_history, name="import_history"),
+    path("import/batch/<int:batch_id>/", imports_views.import_detail, name="import_detail"),
+    path("import/batch/<int:batch_id>/undo/", imports_views.import_undo, name="import_undo"),
     path("import/commit/", imports_views.import_commit, name="import_commit"),
 
     
@@ -58,6 +68,7 @@ urlpatterns = [
     path("admin-tools/dsr/export/<int:person_id>/", audit_views.dsr_export, name="dsr_export"),
     path("admin-tools/dsr/erase/<int:person_id>/", audit_views.dsr_erase, name="dsr_erase"),
     path("admin-tools/audit-log/", audit_views.audit_log_list, name="audit_log"),
+    path("badges/public-key/", badge_public_key, name="badge_public_key"),
     path("badges/verify/<str:badge_jwt>/", passport_views.verify_badge_view, name="badge_verify"),
     path("sessions/<int:session_id>/live.json", sessions_views.session_live_stats, name="session_live_stats"),
     path("hub/", accounts_views.hub_home, name="hub_home"),
@@ -72,6 +83,8 @@ urlpatterns = [
     path("partners/", programmes_views.partner_report_list, name="partner_report_list"),
     path("partners/<int:org_id>/", programmes_views.partner_report, name="partner_report"),
     path("recognition/", programmes_views.recognition_list, name="recognition_list"),
+    path("live/", core_views.liveness, name="liveness"),
+    path("ready/", core_views.readiness, name="readiness"),
     path("health/", health_check, name="health_check"),
     path("library/", library_views.library_dashboard, name="library_dashboard"),
     path("library/transfer/", library_views.library_transfer, name="library_transfer"),

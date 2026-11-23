@@ -4,6 +4,7 @@ import pytest
 from django.core.cache import cache
 from django.urls import reverse
 
+from apps.accounts.tests.helpers import force_login_with_mfa
 from apps.library.models import Competency, Domain, Framework, Level
 from apps.programmes.models import Programme
 from apps.registry.models import Person
@@ -41,8 +42,8 @@ def session(programme, competency):
     s = Session.objects.create(
         programme=programme,
         title="Test Session",
-        start_at=dt.datetime(2026, 11, 1, 9, 0, tzinfo=dt.timezone.utc),
-        end_at=dt.datetime(2026, 11, 1, 17, 0, tzinfo=dt.timezone.utc),
+        start_at=dt.datetime(2026, 11, 1, 9, 0, tzinfo=dt.UTC),
+        end_at=dt.datetime(2026, 11, 1, 17, 0, tzinfo=dt.UTC),
         mode="in_person",
         venue="Room A",
     )
@@ -70,7 +71,7 @@ def test_checkout_console_uses_the_canonical_identify_url(client, session):
     RoleAssignment.objects.create(
         user_account=account, role="super_admin", scope_type="all"
     )
-    client.force_login(user)
+    force_login_with_mfa(client, user)
 
     response = client.get(reverse("session_checkout_console", args=[session.id]))
 
@@ -80,6 +81,34 @@ def test_checkout_console_uses_the_canonical_identify_url(client, session):
     assert response.status_code == 200
     assert expected_url.encode() in response.content
     assert b"data:image/svg+xml;base64," in response.content
+
+
+@pytest.mark.django_db
+def test_programme_scoped_facilitator_can_open_session_creation(client, programme):
+    from django.contrib.auth import get_user_model
+
+    from apps.accounts.models import RoleAssignment, UserAccount
+
+    person = Person.objects.create(
+        affiliation="staff", full_name="Session Facilitator", email="facilitator@example.org",
+        title="Dr", category="academic_staff", unit_other="Test department",
+    )
+    user = get_user_model().objects.create_user(
+        username="facilitator@example.org", password="test-password"
+    )
+    account = UserAccount.objects.create(user=user, person=person)
+    RoleAssignment.objects.create(
+        user_account=account,
+        role="facilitator",
+        scope_type="programme",
+        scope_id=programme.id,
+    )
+    force_login_with_mfa(client, user)
+
+    response = client.get(reverse("session_create"))
+
+    assert response.status_code == 200
+    assert b"Test Programme" in response.content
 
 
 @pytest.mark.django_db
@@ -149,7 +178,7 @@ def test_checkin_requires_consent(client, session):
 
 
 @pytest.mark.django_db
-def test_checkin_creates_evidence(client, session, competency):
+def test_checkin_defers_evidence_until_checkout(client, session, competency):
     from apps.passport.models import Evidence
 
     client.post(
@@ -165,14 +194,21 @@ def test_checkin_creates_evidence(client, session, competency):
             "consent": "on",
         },
     )
+    assert not Evidence.objects.filter(competency=competency, type="attendance").exists()
+    person = Person.objects.get(staff_or_student_no="STF001")
+    response = client.post(reverse("checkout", args=[session.session_code, person.pk]), {"csat": 5})
+    assert response.status_code == 200
+    attendance = Attendance.objects.get(person=person, session=session)
     evidence = Evidence.objects.get(competency=competency, type="attendance")
+    assert evidence.source_id == attendance.pk
+    assert evidence.level.ordinal == 1
     assert evidence.framework_version.startswith(f"{competency.framework.code}:")
     assert evidence.framework_version != "v1"
 
 
 @pytest.mark.django_db
 def test_under_18_checkin_records_guardian_consent(client, session):
-    from apps.registry.models import Consent, Organisation
+    from apps.registry.models import Consent
 
     response = client.post(
         reverse("checkin", args=[session.session_code]),
@@ -335,7 +371,7 @@ def test_closing_session_keeps_unchecked_out_attendance_partial(client, session)
     RoleAssignment.objects.create(
         user_account=account, role="super_admin", scope_type="all"
     )
-    client.force_login(user)
+    force_login_with_mfa(client, user)
 
     response = client.post(reverse("session_close", args=[session.id]))
 

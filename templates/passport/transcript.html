@@ -1,15 +1,15 @@
-﻿{% load static %}
+{% load static %}
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Transcript - {{ person.full_name }}</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Syncopate:wght@400;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{% static 'css/main.css' %}">
     <style>
         body {
-            background-color: #F8FAFC;
+            background-color: #F6F5EF;
             color: #1A1A1A;
             font-family: 'Inter', sans-serif;
             margin: 0;
@@ -20,9 +20,9 @@
             margin: 2rem auto;
             background: white;
             padding: 3rem;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+            border: 1px solid #DDDFD7; border-radius: 4px;
         }
-        h1, h2, h3 { font-family: 'Syncopate', sans-serif; text-transform: uppercase; letter-spacing: 0.05em; }
+        h1, h2, h3 { font-family: 'Inter', sans-serif; letter-spacing: -0.02em; font-weight: 500; }
         .text-grey { color: #6B7280; }
         .text-charcoal { color: #1A1A1A; }
         .border-top { border-top: 2px solid #1A1A1A; }
@@ -42,7 +42,18 @@
             margin: 0 auto;
         }
         
+        @media screen and (max-width: 639px) {
+            .page-container { margin: 1rem auto; padding: 1.25rem; }
+            .print-bar { flex-direction: column; gap: 0.75rem; }
+            .print-bar button { width: 100%; }
+            .page-container h1 { font-size: 1.5rem !important; }
+        }
+        .transcript-table { max-width: 100%; overflow-x: auto; }
+        @media screen {
+            .transcript-table table { min-width: 36rem; }
+        }
         @media print {
+            .transcript-table { overflow: visible; }
             body { background: white; }
             .print-bar { display: none !important; }
             .page-container { box-shadow: none; margin: 0; padding: 0; max-width: 100%; }
@@ -60,7 +71,7 @@
     <!-- Print Bar (Hidden when printing) -->
     <div class="print-bar">
         <a href="{% url 'passport' token %}" style="text-decoration: none; color: #6B7280; font-weight: 500;">← Back to Passport</a>
-        <button onclick="window.print()" style="background: #D1121C; color: white; border: none; padding: 0.5rem 1rem; border-radius: 4px; font-weight: 600; cursor: pointer;">Print / Save as PDF</button>
+        <button onclick="window.print()" style="background: #134E40; color: white; border: none; padding: 0.5rem 1rem; border-radius: 4px; font-weight: 600; cursor: pointer;">Print / Save as PDF</button>
     </div>
 
     <div class="page-container">
@@ -86,6 +97,7 @@
         <section style="margin-bottom: 2rem;">
             <h2 style="font-size: 0.875rem; border-bottom: 1px solid #E5E7EB; padding-bottom: 0.5rem; margin-bottom: 1rem;">Trainer Progress</h2>
             {% if tiers %}
+                <div class="transcript-table" tabindex="0" role="region" aria-label="Trainer progress table">
                 <table style="width: 100%; text-align: left; border-collapse: collapse; font-size: 0.875rem;">
                     <thead>
                         <tr class="table-header">
@@ -106,6 +118,7 @@
                         {% endfor %}
                     </tbody>
                 </table>
+                </div>
             {% else %}
                 <p style="font-size: 0.875rem; color: #6B7280;">No trainer tiers recorded.</p>
             {% endif %}
@@ -118,6 +131,7 @@
                 {% for domain, competencies in domains.items %}
                     <div style="margin-bottom: 1.5rem;">
                         <h3 style="font-size: 0.75rem; font-weight: 600; margin-bottom: 0.5rem;">{{ domain.name }}</h3>
+                        <div class="transcript-table" tabindex="0" role="region" aria-label="{{ domain.name }} evidence table">
                         <table style="width: 100%; text-align: left; border-collapse: collapse; font-size: 0.875rem;">
                             <thead>
                                 <tr class="table-header">
@@ -138,6 +152,7 @@
                                 {% endfor %}
                             </tbody>
                         </table>
+                        </div>
                     </div>
                 {% endfor %}
             {% else %}
@@ -149,6 +164,7 @@
         <section style="margin-bottom: 2rem;">
             <h2 style="font-size: 0.875rem; border-bottom: 1px solid #E5E7EB; padding-bottom: 0.5rem; margin-bottom: 1rem;">Credentials</h2>
             {% if credentials %}
+                <div class="transcript-table" tabindex="0" role="region" aria-label="Credentials table">
                 <table style="width: 100%; text-align: left; border-collapse: collapse; font-size: 0.875rem;">
                     <thead>
                         <tr class="table-header">
@@ -169,6 +185,7 @@
                         {% endfor %}
                     </tbody>
                 </table>
+                </div>
             {% else %}
                 <p style="font-size: 0.875rem; color: #6B7280;">No credentials recorded.</p>
             {% endif %}
@@ -178,6 +195,7 @@
         <section style="margin-bottom: 2rem;">
             <h2 style="font-size: 0.875rem; border-bottom: 1px solid #E5E7EB; padding-bottom: 0.5rem; margin-bottom: 1rem;">Stamps ({{ stamp_count }})</h2>
             {% if stamps %}
+                <div class="transcript-table" tabindex="0" role="region" aria-label="Workshop attendance table">
                 <table style="width: 100%; text-align: left; border-collapse: collapse; font-size: 0.875rem;">
                     <thead>
                         <tr class="table-header">
@@ -198,6 +216,7 @@
                         {% endfor %}
                     </tbody>
                 </table>
+                </div>
             {% else %}
                 <p style="font-size: 0.875rem; color: #6B7280;">No stamps recorded.</p>
             {% endif %}

@@ -7,12 +7,12 @@ class ProfileCompletionMiddleware:
 
     def __call__(self, request):
         # Exempt paths (accounts, admin, static, etc.)
-        exempt = ("/accounts/", "/account/", "/admin/", "/static/", "/media/")
+        exempt = ("/accounts/", "/account/", "/admin/", "/static/", "/media/", "/health/", "/live/", "/ready/")
         
         if request.user.is_authenticated and not any(request.path.startswith(p) for p in exempt):
             try:
                 account = request.user.hub_account
-            except Exception:
+            except AttributeError:
                 account = None
 
             if account and account.person:

@@ -1,0 +1,37 @@
+﻿{% load static %}
+<aside id="app-sidebar" class="app-sidebar" aria-label="Sua+ navigation">
+<div class="sidebar-brand"><a href="{% if user.is_authenticated %}{% url 'hub_home' %}{% else %}{% url 'home' %}{% endif %}" class="sidebar-wordmark" aria-label="Sua+ home"><span class="brand-monogram">s<span>+</span></span><span><strong>Sua+</strong><small>Learning, made visible.</small></span></a><button id="sidebar-close" type="button" class="sidebar-toggle sidebar-close" aria-label="Close navigation"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="m6 6 12 12M6 18 18 6"/></svg></button></div>
+<nav aria-label="Main navigation" class="sidebar-nav">
+{% if user.is_authenticated %}
+<div class="nav-group"><p class="nav-group-label">My learning</p>
+{% url 'hub_home' as href %}{% include 'partials/_nav_link.html' with label='Overview' icon='home' active=nav_current.overview %}
+{% url 'my_passport' as href %}{% include 'partials/_nav_link.html' with label='My passport' icon='passport' active=nav_current.passport %}
+</div>
+{% if sua_nav.sessions or sua_nav.people or sua_nav.scout or sua_nav.programmes %}<div class="nav-group"><p class="nav-group-label">Training</p>
+{% if sua_nav.sessions %}{% url 'session_list' as href %}{% include 'partials/_nav_link.html' with label='Workshops' icon='sessions' active=nav_current.sessions %}{% endif %}
+{% if sua_nav.people %}{% url 'person_list' as href %}{% include 'partials/_nav_link.html' with label='People' icon='people' active=nav_current.people %}{% endif %}
+{% if sua_nav.scout %}{% url 'scout_list' as href %}{% include 'partials/_nav_link.html' with label='Trainer pathways' icon='people' active=nav_current.trainers %}{% endif %}
+{% if sua_nav.programmes %}{% url 'admin:programmes_programme_changelist' as href %}{% include 'partials/_nav_link.html' with label='Programmes' icon='sessions' active=nav_current.programmes admin_link=True %}{% endif %}
+</div>{% endif %}
+{% if sua_nav.identities or sua_nav.reviews or sua_nav.records %}<div class="nav-group"><p class="nav-group-label">Reviews &amp; records</p>
+{% if sua_nav.reviews %}{% url 'credential_review_queue' as href %}{% include 'partials/_nav_link.html' with label='Credential reviews' icon='review' active=nav_current.reviews %}{% endif %}
+{% if sua_nav.identities %}{% url 'identity_review_list' as href %}{% include 'partials/_nav_link.html' with label='Identity review' icon='review' active=nav_current.identities %}{% endif %}
+{% if sua_nav.records %}{% url 'admin:training_attendance_changelist' as href %}{% include 'partials/_nav_link.html' with label='Attendance records' icon='passport' active=nav_current.records admin_link=True %}{% endif %}
+</div>{% endif %}
+{% if sua_nav.reports or sua_nav.memos %}<div class="nav-group"><p class="nav-group-label">Reporting</p>
+{% if sua_nav.reports %}{% url 'dashboard' as href %}{% include 'partials/_nav_link.html' with label='Reports' icon='reports' active=nav_current.reports %}{% endif %}
+{% if sua_nav.memos %}{% url 'memo_list' as href %}{% include 'partials/_nav_link.html' with label='Executive memos' icon='passport' active=nav_current.memos %}{% endif %}
+</div>{% endif %}
+{% if sua_nav.library or sua_nav.admin %}<div class="nav-group"><p class="nav-group-label">Administration</p>
+{% if sua_nav.library %}{% url 'library_dashboard' as href %}{% include 'partials/_nav_link.html' with label='Competency library' icon='library' active=nav_current.library %}{% endif %}
+{% if sua_nav.admin %}{% url 'admin:index' as href %}{% include 'partials/_nav_link.html' with label='Administration' icon='review' active=nav_current.admin admin_link=True %}{% endif %}
+</div>{% endif %}
+{% else %}
+<div class="nav-group"><p class="nav-group-label">Begin your journey</p>
+{% url 'home' as href %}{% include 'partials/_nav_link.html' with label='Home' icon='home' active=nav_current.overview %}
+{% url 'sas_start' as href %}{% include 'partials/_nav_link.html' with label='Self-assessment' icon='review' active=nav_current.assessment %}
+{% url 'resend_link' as href %}{% include 'partials/_nav_link.html' with label='Find my passport' icon='passport' active=nav_current.recovery %}
+</div><div class="sidebar-note"><p>Your next chapter starts with a skill.</p><span>A learning workspace for KNUST staff, students and training participants.</span></div>
+{% endif %}
+</nav><div class="sidebar-footer"><span class="sidebar-institution">KNUST E-Learning Centre</span><small>{% if user.is_authenticated %}{{ workspace_role }}{% else %}Digital education. Real progress.{% endif %}</small></div>
+</aside>

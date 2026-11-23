@@ -3,30 +3,24 @@
 {% block title %}Review Draft {{ draft.code }} - Competency Library{% endblock %}
 
 {% block content %}
-<div class="max-w-3xl mx-auto px-4 sm:px-6 py-8 md:py-10 pb-20 md:pb-32">
+<div class="editorial-wrap library-review">
     <a href="{% url 'library_dashboard' %}?framework={{ domain.framework_id }}&domain={{ domain.id }}" class="text-sm text-kec-grey hover:text-kec-red mb-6 inline-block">Back to Library</a>
 
-    <h1 class="font-syncopate text-2xl md:text-3xl uppercase tracking-wider text-kec-charcoal mb-2">Review Draft Change</h1>
-    <p class="text-sm text-kec-grey mb-6">{{ draft.code }} · {{ draft.get_status_display }} · Proposed {{ draft.get_proposed_status_display }}</p>
-
-    {% if messages %}
-        {% for message in messages %}
-            <div class="mb-4 p-3 bg-red-50 text-kec-red text-sm rounded-kec">{{ message }}</div>
-        {% endfor %}
-    {% endif %}
+    <h1 class="editorial-title mb-3">Review Draft Change</h1>
+    <p class="text-sm text-kec-grey mb-6">{{ draft.code }} &middot; {{ draft.get_status_display }} &middot; Proposed {{ draft.get_proposed_status_display }}</p>
 
     <section class="bg-white border border-gray-200 rounded-xl p-5 mb-6">
-        <h2 class="text-sm font-bold uppercase tracking-wide mb-3">Proposed change</h2>
+        <h2 class="text-sm font-bold tracking-wide mb-3">Proposed change</h2>
         <p class="text-xs text-kec-grey mb-1">Reason</p>
         <p class="text-sm mb-5">{{ draft.change_reason }}</p>
         <div class="grid md:grid-cols-2 gap-5 text-sm">
-            <div><h3 class="font-semibold mb-2">Current</h3>{% if competency %}<p class="mb-2"><strong>{{ competency.code }} · {{ competency.title }}</strong></p><p class="mb-2">{{ competency.description|default:"No description" }}</p><p>{{ competency.proficient_descriptor|default:"No level 3 descriptor" }}</p><p class="mt-2">Status: {{ competency.get_status_display }}</p>{% if competency.replaced_by %}<p>Replaced by: {{ competency.replaced_by.code }} · {{ competency.replaced_by.title }}</p>{% endif %}{% else %}<p>New competency in {{ domain.name }}.</p>{% endif %}</div>
-            <div><h3 class="font-semibold mb-2">Draft</h3><p class="mb-2"><strong>{{ draft.code }} · {{ draft.title }}</strong></p><p class="mb-2">{{ draft.description|default:"No description" }}</p><p>{{ draft.proficient_descriptor|default:"No level 3 descriptor" }}</p><p class="mt-2">Status: {{ draft.get_proposed_status_display }}</p>{% if draft.proposed_replaced_by %}<p>Replacement: {{ draft.proposed_replaced_by.code }} · {{ draft.proposed_replaced_by.title }}</p>{% endif %}</div>
+            <div><h3 class="font-semibold mb-2">Current</h3>{% if competency %}<p class="mb-2"><strong>{{ competency.code }} &middot; {{ competency.title }}</strong></p><p class="mb-2">{{ competency.description|default:"No description" }}</p><p>{{ competency.proficient_descriptor|default:"No level 3 descriptor" }}</p><p class="mt-2">Status: {{ competency.get_status_display }}</p>{% if competency.replaced_by %}<p>Replaced by: {{ competency.replaced_by.code }} &middot; {{ competency.replaced_by.title }}</p>{% endif %}{% else %}<p>New competency in {{ domain.name }}.</p>{% endif %}</div>
+            <div><h3 class="font-semibold mb-2">Draft</h3><p class="mb-2"><strong>{{ draft.code }} &middot; {{ draft.title }}</strong></p><p class="mb-2">{{ draft.description|default:"No description" }}</p><p>{{ draft.proficient_descriptor|default:"No level 3 descriptor" }}</p><p class="mt-2">Status: {{ draft.get_proposed_status_display }}</p>{% if draft.proposed_replaced_by %}<p>Replacement: {{ draft.proposed_replaced_by.code }} &middot; {{ draft.proposed_replaced_by.title }}</p>{% endif %}</div>
         </div>
     </section>
 
     <section class="bg-gray-50 border border-gray-200 rounded-xl p-5 mb-6">
-        <h2 class="text-sm font-bold uppercase tracking-wide mb-3">Impact before publishing</h2>
+        <h2 class="text-sm font-bold tracking-wide mb-3">Impact before publishing</h2>
         <p class="text-sm mb-3">{{ programmes_using|length }} programme{{ programmes_using|length|pluralize }}, {{ sessions_using|length }} session{{ sessions_using|length|pluralize }}, and {{ evidence_count }} evidence record{{ evidence_count|pluralize }} use this competency.</p>
         {% if programmes_using %}<ul class="list-disc pl-5 text-sm mb-3">{% for pc in programmes_using %}<li>{{ pc.programme.name }} (target level {{ pc.target_level }})</li>{% endfor %}</ul>{% endif %}
         {% if sessions_using %}<ul class="list-disc pl-5 text-sm">{% for coverage in sessions_using %}<li>{{ coverage.session.title }}</li>{% endfor %}</ul>{% endif %}

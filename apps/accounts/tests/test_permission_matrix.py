@@ -1,6 +1,5 @@
 import pytest
 from django.contrib.auth import get_user_model
-from django.db.models import Q
 
 from apps.accounts.models import RoleAssignment, UserAccount
 from apps.accounts.permissions import scope_queryset
@@ -102,12 +101,13 @@ def test_programme_owner_sees_own_programme_only(
     person_eng, person_sci, college_eng
 ):
     """A Programme Owner scoped to a programme sees only people in that programme."""
-    from apps.programmes.models import Programme
-    from apps.programmes.models import ProgrammeCompetency
-    from apps.library.models import Competency, Domain, Framework
-    from apps.sessions.models import Attendance, Session
-    from django.utils import timezone
     import datetime
+
+    from django.utils import timezone
+
+    from apps.library.models import Competency, Domain, Framework
+    from apps.programmes.models import Programme, ProgrammeCompetency
+    from apps.sessions.models import Attendance, Session
 
     # Create framework + competency
     framework = Framework.objects.create(code="KNUST", name="KNUST", is_knust=True)

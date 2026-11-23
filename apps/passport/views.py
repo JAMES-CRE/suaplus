@@ -8,16 +8,24 @@ from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.cache import cache
+from django.core.exceptions import PermissionDenied, ValidationError
 from django.core.mail import send_mail
 from django.db import transaction
-from django.db.models import Q
 from django.http import Http404, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.utils import timezone
 from django.utils.dateparse import parse_date
 from django.views.decorators.http import require_POST
 
-from apps.accounts.permissions import is_super_admin
+from apps.accounts.linking import resolve_person_for_user
+from apps.accounts.permissions import (
+    can,
+    credential_queryset,
+    is_super_admin,
+    person_id_for,
+    require_capability,
+)
 from apps.audit.services import log_event
 from apps.core.rate_limit import rate_limit
 from apps.library.models import (
@@ -32,8 +40,8 @@ from apps.notifications.services import (
     send_correction_request_to_facilitators,
     send_notification,
 )
-from apps.passport.linking import issue_passport_link
 from apps.passport.forms import CredentialSubmitForm
+from apps.passport.linking import issue_passport_link
 from apps.passport.models import (
     CorrectionRequest,
     Credential,
@@ -44,10 +52,16 @@ from apps.passport.models import (
     SelfAssessment,
 )
 from apps.passport.services import expire_due_records, generate_badge_json, verify_badge
+from apps.passport.querysets import valid_evidence
 from apps.programmes.models import TierStatus
-from apps.registry.models import Consent, Organisation, OrgUnit, PassportToken, Person
+from apps.registry.identity import (
+    identity_data,
+    match_identity,
+    queue_identity,
+    resolve_or_create,
+)
+from apps.registry.models import OrgUnit, PassportToken, Person
 from apps.sessions.models import Attendance, Session
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -77,7 +91,7 @@ def _mask_phone(phone):
 def _compute_competency_profile(person):
     """Group evidence by domain and calculate averages for self vs verified."""
     evidence = (
-        Evidence.objects.filter(person=person, status="valid")
+        valid_evidence().filter(person=person)
         .select_related("competency__domain", "level")
     )
 
@@ -86,17 +100,15 @@ def _compute_competency_profile(person):
         "task": 4, "attendance": 5, "self": 6,
     }
 
-    # 1. Find the best evidence per competency
+    # Keep the best self-rating and verified record independently for each skill.
     best_per_competency = {}
     for ev in evidence:
-        key = ev.competency_id
+        key = (ev.competency_id, ev.type == "self")
         existing = best_per_competency.get(key)
         if existing is None:
             best_per_competency[key] = ev
         else:
-            if ev.level.ordinal > existing.level.ordinal:
-                best_per_competency[key] = ev
-            elif ev.level.ordinal == existing.level.ordinal and type_priority.get(ev.type, 99) < type_priority.get(existing.type, 99):
+            if ev.level.ordinal > existing.level.ordinal or ev.level.ordinal == existing.level.ordinal and type_priority.get(ev.type, 99) < type_priority.get(existing.type, 99):
                 best_per_competency[key] = ev
 
     # 2. Group by domain and calculate stats
@@ -140,88 +152,24 @@ def _compute_competency_profile(person):
 
 
 def _can_review(user):
-    """Check if the user has permission to review credentials."""
-    if is_super_admin(user):
-        return True
-    try:
-        roles = user.hub_account.roles.values_list("role", flat=True)
-        return "programme_owner" in roles or "focal_person" in roles
-    except AttributeError:
-        return False
+    return can(user, "review_credentials")
 
 
 def _reviewable_credentials(user):
-    """Return pending credentials within the reviewer's assigned scope."""
-    qs = Credential.objects.filter(review_status__in=["submitted", "in_review"])
-    if is_super_admin(user):
-        return qs
+    return credential_queryset(user).filter(review_status__in=["submitted", "in_review"])
 
-    from apps.accounts.permissions import get_user_scopes
 
-    scopes = get_user_scopes(user)
-    if any(
-        scope.role in ("focal_person", "programme_owner")
-        and scope.scope_type == "all"
-        for scope in scopes
+def _require_passport_owner(request, person_id):
+    if not is_super_admin(request.user) and (
+        person_id_for(request.user) != person_id
+        or not Person.objects.filter(pk=person_id, is_anonymised=False, merged_into__isnull=True).exists()
     ):
-        return qs
-
-    unit_ids = {
-        scope.scope_id
-        for scope in scopes
-        if scope.role == "focal_person"
-        and scope.scope_type == "unit"
-        and scope.scope_id is not None
-    }
-    programme_ids = {
-        scope.scope_id
-        for scope in scopes
-        if scope.role == "programme_owner"
-        and scope.scope_type == "programme"
-        and scope.scope_id is not None
-    }
-    allowed = Q(pk__in=[])
-    if unit_ids:
-        allowed |= Q(person__unit_id__in=unit_ids)
-    if programme_ids:
-        allowed |= Q(
-            catalogue__competencies__competency__programme_targets__programme_id__in=programme_ids
-        )
-    return qs.filter(allowed).distinct()
+        raise PermissionDenied
 
 
 def _generate_evidence_from_credential(credential):
-    """If the credential matches the catalogue, generate Evidence."""
-    catalogue = CertificationCatalogue.objects.filter(
-        issuer__iexact=credential.issuer or "",
-        title__iexact=credential.title or "",
-    ).first()
-
-    if not catalogue:
-        return
-
-    mappings = CertificationCompetency.objects.filter(certification=catalogue)
-    if not mappings.exists():
-        return
-
-    for mapping in mappings:
-        level = Level.objects.filter(
-            framework__is_knust=True,
-            ordinal=mapping.max_level,
-        ).first()
-        if not level:
-            continue
-        Evidence.objects.create(
-            person=credential.person,
-            competency=mapping.competency,
-            level=level,
-            type="external",
-            source_type="credential",
-            credential=credential,
-            status="valid",
-            expires_at=credential.expires_at,
-            framework_version=framework_version_label(mapping.competency.framework),
-        )
+    from apps.passport.awards import generate_credential_evidence
+    return generate_credential_evidence(credential)
 
 
 def _issue_badge_for_credential(credential):
@@ -236,23 +184,26 @@ def _issue_badge_for_credential(credential):
             title__iexact=credential.title or "",
             active=True,
         ).first()
-    if not catalogue:
+    if not catalogue or not catalogue.active or credential.review_status != "approved" or credential.status != "valid":
         return False
 
     mapping = catalogue.competencies.select_related("competency").first()
     if not mapping:
         return False
 
-    level = Level.objects.filter(
-        framework__is_knust=True, ordinal=mapping.max_level
-    ).first()
+    from apps.library.models import EvidenceRule
+    from django.db.models import Q
+    caps = EvidenceRule.objects.filter(Q(competency=mapping.competency) | Q(competency__isnull=True), evidence_type="external", status__in=["active", "published"]).values_list("max_level", flat=True)
+    cap = min([mapping.max_level, *caps])
+    level = Level.objects.filter(framework=mapping.competency.framework, ordinal=cap).first()
     if not level:
         return False
 
     credential.catalogue = catalogue
-    credential.badge_json = {
-        "jwt": generate_badge_json(credential.person, mapping.competency, level)
-    }
+    signed = generate_badge_json(credential.person, mapping.competency, level)
+    if not signed:
+        return False
+    credential.badge_json = {"jwt": signed}
     credential.save(update_fields=["catalogue", "badge_json", "updated_at"])
     return True
 
@@ -300,7 +251,13 @@ def passport_view(request, token):
             first_view_stamp_ids.add(stamp.id)
 
     # 2. Credentials
-    credentials = Credential.objects.filter(person=person).order_by("-issued_at")
+    credentials = list(Credential.objects.filter(person=person).order_by("-issued_at"))
+    for credential in credentials:
+        badge_jwt = (credential.badge_json or {}).get("jwt")
+        if credential.review_status == "approved" and badge_jwt:
+            credential.badge_share_url = request.build_absolute_uri(
+                reverse("badge_verify", args=[badge_jwt])
+            )
 
     # 3. Trainer Pathways (all programmes)
     from django.db.models import Max
@@ -323,20 +280,23 @@ def passport_view(request, token):
     # 4. Gap Analysis & Upcoming Sessions
     from apps.programmes.models import ProgrammeCompetency
 
-    current_comps = set(
-        Evidence.objects.filter(person=person, status="valid")
-        .values_list("competency_id", flat=True)
-        .distinct()
-    )
-
-    programme_ids = tiers.values_list("programme_id", flat=True)
-    target_comps = set(
-        ProgrammeCompetency.objects.filter(programme_id__in=programme_ids)
-        .values_list("competency_id", flat=True)
-        .distinct()
-    )
-
-    gaps = target_comps - current_comps
+    current_levels = {
+        row["competency_id"]: row["highest_level"]
+        for row in valid_evidence().filter(person=person)
+        .values("competency_id")
+        .annotate(highest_level=Max("level__ordinal"))
+    }
+    target_levels = {
+        row["competency_id"]: row["target_level"]
+        for row in ProgrammeCompetency.objects.filter(programme__status="active")
+        .values("competency_id")
+        .annotate(target_level=Max("target_level"))
+    }
+    gaps = {
+        competency_id
+        for competency_id, target_level in target_levels.items()
+        if current_levels.get(competency_id, 0) < target_level
+    }
 
     now = timezone.now()
     upcoming_sessions = (
@@ -362,6 +322,53 @@ def passport_view(request, token):
             ) if matching_gaps else ""
         })
 
+    returned_credential = next(
+        (credential for credential in credentials
+         if credential.review_status == "returned"
+         and credential.source == "self_submitted"),
+        None,
+    )
+    recommended_session = next(
+        (item for item in recommendations if item["is_recommended"]),
+        recommendations[0] if recommendations else None,
+    )
+    if returned_credential:
+        next_action = {
+            "title": "Update your returned credential",
+            "description": "A reviewer has asked for more information. Read their note and update your submission.",
+            "url": f"{reverse('credential_submit')}?resubmit={returned_credential.id}",
+            "label": "Update credential" if request.user.is_authenticated else "Sign in to update credential",
+        }
+    elif not domains and person.affiliation in {"staff", "student"}:
+        next_action = {
+            "title": "Start with your self-assessment",
+            "description": "Rate your current skills to build your competency profile. Allow about 15 minutes.",
+            "url": reverse("sas_start"),
+            "label": "Start self-assessment",
+        }
+    elif recommended_session:
+        next_action = {
+            "title": "Explore your next workshop",
+            "description": recommended_session["session"].title,
+            "url": "#upcoming-sessions",
+            "label": "View upcoming workshops",
+        }
+    else:
+        next_action = {
+            "title": "Choose your next learning goal",
+            "description": "Set a skill you want to develop and give yourself a target date.",
+            "url": "#learning-goals",
+            "label": "Set a learning goal",
+        }
+    profile_summary = {
+        "domain_count": len(domains),
+        "verified_count": sum(data["verified_count"] for data in domains.values()),
+        "credential_count": sum(
+            credential.review_status == "approved" and credential.status == "valid"
+            for credential in credentials
+        ),
+    }
+
     return render(
         request,
         "passport/passport.html",
@@ -378,10 +385,14 @@ def passport_view(request, token):
             "tiers": tiers,
             "recommendations": recommendations,
             "token": token,
+            "next_action": next_action,
+            "profile_summary": profile_summary,
+            "can_manage_passport": request.user.is_authenticated and (is_super_admin(request.user) or person_id_for(request.user) == person.pk),
         },
     )
 
 
+@login_required
 @require_POST
 def passport_goals(request, token):
     """Create or update a passport holder's personal learning goal."""
@@ -392,6 +403,7 @@ def passport_goals(request, token):
     if not pt:
         raise Http404("Passport not found")
 
+    _require_passport_owner(request, pt.person_id)
     action = request.POST.get("action", "add")
     if action == "add":
         title = request.POST.get("title", "").strip()
@@ -439,31 +451,16 @@ def passport_invalid(request):
 
 
 @login_required
+@transaction.atomic
 def credential_submit(request):
     """A signed-in user submits an external certification."""
-    try:
-        person = request.user.hub_account.person
-    except Exception:
-        person = None
-    if person is None:
-        user = request.user
-        name = (user.get_full_name() or user.username or user.email.split("@")[0]).strip()
-        person = Person.objects.create(
-            affiliation="external",
-            email=user.email,
-            full_name=name,
-        )
-        try:
-            request.user.hub_account.person = person
-            request.user.hub_account.save()
-        except Exception:
-            pass
+    person = resolve_person_for_user(request.user, request=request)
 
     resubmission_id = request.GET.get("resubmit")
     resubmission = None
     if resubmission_id:
         resubmission = get_object_or_404(
-            Credential,
+            Credential.objects.select_for_update() if request.method == "POST" else Credential.objects.all(),
             id=resubmission_id,
             person=person,
             review_status="returned",
@@ -480,6 +477,9 @@ def credential_submit(request):
                 credential.reviewer = None
                 credential.reviewed_at = None
                 credential.review_note = ""
+            credential.catalogue = CertificationCatalogue.objects.filter(
+                issuer__iexact=credential.issuer, title__iexact=credential.title, active=True,
+            ).first()
             credential.save()
 
             cat = CertificationCatalogue.objects.filter(
@@ -565,9 +565,9 @@ def credential_submit(request):
 
 
 @login_required
+@require_capability("review_credentials")
 def credential_review_queue(request):
     """List of credentials pending review, scoped to the reviewer's permissions."""
-    from apps.accounts.permissions import get_user_scopes
 
     if not _can_review(request.user):
         messages.error(request, "You don't have permission to review credentials.")
@@ -583,6 +583,7 @@ def credential_review_queue(request):
 
 
 @login_required
+@require_capability("review_credentials")
 def credential_review_detail(request, credential_id):
     """Review a specific credential and approve/reject it."""
     from django.conf import settings as django_settings
@@ -647,6 +648,10 @@ def credential_review_detail(request, credential_id):
             return redirect("credential_review_detail", credential_id=credential.id)
 
         with transaction.atomic():
+            credential = Credential.objects.select_for_update().get(pk=credential.pk)
+            if credential.review_status not in {"submitted", "in_review"}:
+                messages.info(request, "This credential has already been reviewed.")
+                return redirect("credential_review_queue")
             from_status = credential.review_status
             credential.review_status = decision
             credential.reviewer = request.user
@@ -734,104 +739,7 @@ def credential_review_detail(request, credential_id):
 # ---------------------------------------------------------------------------
 
 
-@rate_limit("sas_start", max_requests=10, window_seconds=3600)
-def sas_start(request):
-    """Step 1: Enter KNUST email to start the self-assessment."""
-    if request.method == "POST":
-        email = request.POST.get("email", "").strip().lower()
-        if not email.endswith("@knust.edu.gh") and not email.endswith("@st.knust.edu.gh"):
-            return render(request, "public/sas_start.html", {"error": "Please use a valid KNUST email address."})
-
-        person, _ = Person.objects.get_or_create(
-            email=email,
-            defaults={"affiliation": "staff", "full_name": email.split("@")[0].title()},
-        )
-
-        raw_token = secrets.token_urlsafe(32)
-        token_hash = hashlib.sha256(raw_token.encode()).hexdigest()
-        PassportToken.objects.create(person=person, token_hash=token_hash)
-
-        url = f"{settings.SITE_URL}/sas/confirm/{raw_token}/"
-        send_mail(
-            "Your Sua+ Self-Assessment Link",
-            f"Click here to start your self-assessment: {url}",
-            settings.DEFAULT_FROM_EMAIL,
-            [person.email],
-        )
-        return render(request, "public/sas_email_sent.html")
-
-    return render(request, "public/sas_start.html")
-
-
-def sas_confirm(request, token):
-    """Step 2: Verify token, confirm profile, then show questionnaire."""
-    token_hash = hashlib.sha256(token.encode()).hexdigest()
-    pt = PassportToken.objects.filter(token_hash=token_hash, revoked_at__isnull=True).first()
-
-    if not pt:
-        return render(request, "public/invalid.html")
-
-    person = pt.person
-
-    # PHASE 1: PROFILE CONFIRMATION
-    if not person.title or not person.category or (not person.unit_id and not person.unit_other):
-        if request.method == "POST":
-            person.title = request.POST.get("title", "").strip()
-            person.category = request.POST.get("category", "").strip()
-            person.phone = request.POST.get("phone", "").strip()
-
-            selected_unit = request.POST.get("unit", "")
-
-            if selected_unit == "other":
-                person.unit_id = None
-                person.unit_other = request.POST.get("unit_other", "").strip()
-            elif selected_unit:
-                person.unit_id = int(selected_unit)
-                person.unit_other = ""
-            else:
-                person.unit_id = None
-                person.unit_other = ""
-
-            person.save()
-            return redirect("sas_confirm", token=token)
-
-        units = OrgUnit.objects.filter(active=True, type__in=["department", "faculty", "school"]).order_by("name")
-        return render(request, "public/sas_profile.html", {"person": person, "token": token, "units": units})
-
-    # PHASE 2: QUESTIONNAIRE
-    competencies = Competency.objects.filter(status="active").select_related("domain", "framework").order_by("domain__display_order", "code")
-
-    if request.method == "POST":
-        with transaction.atomic():
-            template, _ = SurveyTemplate.objects.get_or_create(name="Baseline Self-Assessment", defaults={"type": "pre", "definition": {}})
-            SelfAssessment.objects.create(person=person, template=template, status="submitted", submitted_at=timezone.now())
-
-            for comp in competencies:
-                level_val = request.POST.get(f"comp_{comp.id}")
-                if level_val:
-                    level = Level.objects.filter(framework__is_knust=True, ordinal=int(level_val)).first()
-                    if level:
-                        Evidence.objects.create(
-                            person=person,
-                            competency=comp,
-                            level=level,
-                            type="self",
-                            source_type="self_assessment",
-                            status="valid",
-                            framework_version=framework_version_label(comp.framework),
-                        )
-
-            passport_url = issue_passport_link(person)
-
-        send_notification(
-            person=person,
-            template_key="passport_link",
-            context={"name": person.full_name, "session_title": "Self-Assessment", "passport_url": passport_url},
-        )
-
-        return render(request, "public/sas_done.html", {"passport_url": passport_url})
-
-    return render(request, "public/sas_form.html", {"person": person, "competencies": competencies})
+from apps.passport.sas_views import send_self_assessment_link, sas_start, sas_confirm
 
 
 # ---------------------------------------------------------------------------
@@ -844,6 +752,9 @@ def verify_badge_view(request, badge_jwt):
     badge_data = verify_badge(badge_jwt)
 
     if not badge_data:
+        return render(request, "public/badge_invalid.html")
+    credential = Credential.objects.filter(badge_json__jwt=badge_jwt).first()
+    if credential and (credential.status != "valid" or credential.review_status != "approved" or (credential.expires_at and credential.expires_at < timezone.localdate()) or credential.person.is_anonymised or credential.person.merged_into_id):
         return render(request, "public/badge_invalid.html")
 
     return render(request, "public/badge_valid.html", {"badge": badge_data})
@@ -879,15 +790,16 @@ def resend_link(request):
             within_email_limit = False
 
         if email and within_email_limit:
-            person = Person.objects.filter(email__iexact=email).first()
-            if person:
+            try:
+                result = match_identity(identity_data(email=email), source="resend")
+            except ValidationError:
+                result = None
+            if result and result.status == "matched":
+                person = result.person
                 passport_url = issue_passport_link(person)
-
-                send_notification(
-                    person=person,
-                    template_key="passport_link",
-                    context={"name": person.full_name, "session_title": "Sua+ Portal", "passport_url": passport_url},
-                )
+                send_notification(person=person, template_key="passport_link", context={"name": person.full_name, "session_title": "Sua+ Portal", "passport_url": passport_url})
+            elif result and result.status == "conflict":
+                queue_identity(result, source="resend")
 
         message = "If that email is in our system, a new passport link has been sent to it."
 
@@ -977,11 +889,15 @@ def passport_transcript_pdf(request, token):
         raise Http404("Passport not found")
 
     expire_due_records()
-    from reportlab.lib import colors
     from reportlab.lib.pagesizes import A4
     from reportlab.lib.styles import getSampleStyleSheet
     from reportlab.lib.units import cm
-    from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
+    from reportlab.platypus import (
+        Paragraph,
+        SimpleDocTemplate,
+        Spacer,
+        Table,
+    )
 
     person = pt.person
     buffer = BytesIO()
@@ -1067,6 +983,9 @@ def passport_transcript_pdf(request, token):
 
 
 def _transcript_table_style():
+    from reportlab.lib import colors
+    from reportlab.platypus import TableStyle
+
     return TableStyle(
         [
             ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#F3F4F6")),
@@ -1104,6 +1023,7 @@ def passport_profile(request, token):
     )
 
 
+@login_required
 def passport_profile_edit(request, token):
     """Allow a passport owner to edit their profile."""
     token_hash = hashlib.sha256(token.encode()).hexdigest()
@@ -1112,6 +1032,7 @@ def passport_profile_edit(request, token):
     if not pt:
         raise Http404("Passport not found")
 
+    _require_passport_owner(request, pt.person_id)
     person = pt.person
 
     if request.method == "POST":
@@ -1150,11 +1071,31 @@ def passport_profile_edit(request, token):
 
 
 @login_required
+def credential_file(request, credential_id):
+    """Serve certificates through an authorised route, never a public media URL."""
+    from django.http import FileResponse
+    from django.utils.cache import patch_cache_control
+
+    credential = get_object_or_404(Credential.objects.select_related("person"), pk=credential_id)
+    own_record = credential.person_id == person_id_for(request.user) and not credential.person.is_anonymised
+    scoped_reader = credential_queryset(request.user, "view_people").filter(pk=credential.pk).exists()
+    if not own_record and not scoped_reader:
+        raise Http404("Certificate not found")
+    if not credential.file:
+        raise Http404("Certificate not found")
+    try:
+        response = FileResponse(credential.file.open("rb"), as_attachment=True)
+    except FileNotFoundError as exc:
+        raise Http404("Certificate not found") from exc
+    patch_cache_control(response, private=True, no_store=True)
+    return response
+
+
+@login_required
 def my_passport(request):
     """Generate a fresh passport token for the logged-in user and redirect."""
-    try:
-        person = request.user.hub_account.person
-    except Exception:
+    person = resolve_person_for_user(request.user, request=request)
+    if person is None:
         messages.error(request, "Your account is not linked to a person record yet. Please contact the administrator.")
         return redirect("/hub/")
 

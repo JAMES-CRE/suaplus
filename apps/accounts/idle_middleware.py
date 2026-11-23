@@ -1,6 +1,7 @@
+from datetime import timedelta
+
 from django.contrib.auth import logout
 from django.utils import timezone
-from datetime import timedelta
 
 
 class IdleTimeoutMiddleware:
@@ -11,7 +12,7 @@ class IdleTimeoutMiddleware:
         if request.user.is_authenticated:
             try:
                 minutes = request.user.hub_account.idle_timeout_minutes
-            except Exception:
+            except AttributeError:
                 minutes = 30
             last = request.session.get("last_activity")
             now = timezone.now()

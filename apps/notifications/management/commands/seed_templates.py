@@ -1,6 +1,7 @@
 """Seed default notification templates."""
 
 from django.core.management.base import BaseCommand
+
 from apps.notifications.models import NotificationTemplate
 
 TEMPLATES = [
@@ -127,7 +128,7 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         created_count = 0
         for t in TEMPLATES:
-            obj, created = NotificationTemplate.objects.update_or_create(
+            _template, created = NotificationTemplate.objects.update_or_create(
                 key=t["key"],
                 defaults={
                     "channel": t["channel"],

@@ -1,17 +1,17 @@
-﻿{% extends 'base.html' %}
+{% extends 'base.html' %}
 {% load static %}
 
 {% block title %}{{ organisation.name }}   Partner Report{% endblock %}
 
 {% block content %}
-<div class="max-w-3xl mx-auto px-4 sm:px-6 py-8 md:py-12 pb-32">
+<div class="editorial-wrap partner-report">
 
     <a href="{% url 'partner_report_list' %}" class="text-sm text-kec-grey hover:text-kec-red mb-6 inline-block">
          All partners
     </a>
 
     <div class="mb-8 md:mb-10">
-        <h1 class="font-syncopate text-3xl md:text-4xl uppercase tracking-wider md:tracking-widest text-kec-charcoal mb-2">
+        <h1 class="editorial-title mb-3">
             {{ organisation.name }}
         </h1>
         <p class="text-sm text-kec-grey">
@@ -27,27 +27,27 @@
     <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 md:gap-4 mb-8 md:mb-12">
 
         <div class="border border-gray-200 rounded-kec p-4 md:p-5">
-            <p class="text-[10px] sm:text-xs font-semibold text-kec-grey uppercase tracking-wider mb-1 md:mb-2">Reach</p>
+            <p class="text-xs font-semibold text-kec-grey uppercase tracking-wider mb-1 md:mb-2">Reach</p>
             <p class="text-3xl md:text-4xl font-bold text-kec-charcoal leading-none">
                 {{ reach_display }}
             </p>
-            <p class="text-[10px] sm:text-xs text-kec-grey mt-1 md:mt-2">distinct people</p>
+            <p class="text-xs text-kec-grey mt-1 md:mt-2">distinct people</p>
         </div>
 
         <div class="border border-gray-200 rounded-kec p-4 md:p-5">
-            <p class="text-[10px] sm:text-xs font-semibold text-kec-grey uppercase tracking-wider mb-1 md:mb-2">CSAT</p>
+            <p class="text-xs font-semibold text-kec-grey uppercase tracking-wider mb-1 md:mb-2">CSAT</p>
             <p class="text-3xl md:text-4xl font-bold text-kec-charcoal leading-none">
-                {% if csat_mean %}{{ csat_mean }}<span class="text-sm font-normal">/5</span>{% else %} {% endif %}
+                {% if csat_mean != None %}{{ csat_mean }}<span class="text-sm font-normal">/5</span>{% else %}<span class="metric-empty">No responses yet</span>{% endif %}
             </p>
-            <p class="text-[10px] sm:text-xs text-kec-grey mt-1 md:mt-2">mean exit</p>
+            <p class="text-xs text-kec-grey mt-1 md:mt-2">mean exit</p>
         </div>
 
         <div class="border border-gray-200 rounded-kec p-4 md:p-5">
-            <p class="text-[10px] sm:text-xs font-semibold text-kec-grey uppercase tracking-wider mb-1 md:mb-2">Sessions</p>
+            <p class="text-xs font-semibold text-kec-grey uppercase tracking-wider mb-1 md:mb-2">Sessions</p>
             <p class="text-3xl md:text-4xl font-bold text-kec-charcoal leading-none">
                 {{ sessions|length }}
             </p>
-            <p class="text-[10px] sm:text-xs text-kec-grey mt-1 md:mt-2">delivered</p>
+            <p class="text-xs text-kec-grey mt-1 md:mt-2">delivered</p>
         </div>
 
     </div>
@@ -77,8 +77,8 @@
 
     {% if sessions %}
         <!-- Desktop table -->
-        <div class="hidden sm:block border border-gray-200 rounded-kec overflow-hidden">
-            <table class="w-full text-left">
+        <div class="hidden sm:block border border-gray-200 rounded-kec table-scroll">
+            <table class="data-table">
                 <thead>
                     <tr class="bg-gray-50 border-b border-gray-200">
                         <th class="px-4 py-3 text-xs font-semibold text-kec-grey uppercase tracking-wider">Date</th>
@@ -107,7 +107,7 @@
         <!-- Mobile cards -->
         <div class="sm:hidden space-y-3">
             {% for s in sessions %}
-            <div class="border border-gray-200 rounded-kec p-4">
+            <div class="register-mobile-row">
                 <p class="text-xs text-kec-grey mb-1">{{ s.start_at|date:"d M Y" }}</p>
                 <p class="text-sm text-kec-charcoal font-semibold mb-1">{{ s.title }}</p>
                 <p class="text-xs text-kec-grey">{{ s.programme.name }}</p>

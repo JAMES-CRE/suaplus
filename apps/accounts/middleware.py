@@ -1,16 +1,58 @@
+from urllib.parse import urlencode
+
 from django.shortcuts import redirect
-from django_otp import user_has_device
+from django.urls import reverse
+from django.utils.deprecation import MiddlewareMixin
+
+from apps.accounts.mfa import has_verified_totp, requires_mfa
 
 
-class SuperAdminMFAMiddleware:
-    """Force Super Admins to set up TOTP before accessing Hub pages."""
+class SuperAdminMFAMiddleware(MiddlewareMixin):
+    """Require session MFA on every privileged route, including Django admin.
 
-    def __init__(self, get_response):
-        self.get_response = get_response
+    Public participant flows and authentication remain reachable. New routes
+    are protected by default instead of requiring another protected-path entry.
+    """
 
-    def __call__(self, request):
-        if request.user.is_authenticated and request.path.startswith("/hub/"):
-            from apps.accounts.permissions import is_super_admin
-            if is_super_admin(request.user) and not user_has_device(request.user):
-                return redirect("/account/totp/setup/")
-        return self.get_response(request)
+    public_view_names = frozenset(
+        {
+            "home",
+            "health_check",
+            "liveness",
+            "readiness",
+            "login",
+            "cancel_login_code",
+            "profile_completion",
+            "totp_setup",
+            "totp_setup_qr",
+            "checkin",
+            "checkin_done",
+            "checkout",
+            "checkout_identify",
+            "passport",
+            "passport_profile",
+            "passport_transcript",
+            "passport_transcript_pdf",
+            "report_error",
+            "resend_link",
+            "sas_start",
+            "sas_confirm",
+            "followup_form",
+            "badge_verify",
+            "badge_public_key",
+        }
+    )
+
+    def process_view(self, request, view_func, view_args, view_kwargs):
+        match = request.resolver_match
+        if request.path_info.startswith("/accounts/"):
+            return None
+        if match and (
+            (not match.namespace and match.url_name in self.public_view_names)
+            or (match.namespace == "admin" and match.url_name in {"login", "logout"})
+        ):
+            return None
+        if requires_mfa(request.user) and not has_verified_totp(request.user):
+            query = urlencode({"next": request.get_full_path()})
+            return redirect(f"{reverse('totp_setup')}?{query}")
+        return None

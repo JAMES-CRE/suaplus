@@ -1,11 +1,11 @@
-﻿{% extends 'base.html' %}
+{% extends 'base.html' %}
 {% load static %}
 
 {% block title %}Edit Profile - {{ person.full_name }}{% endblock %}
 
 {% block content %}
 <div class="min-h-[80vh] flex items-center justify-center px-4 sm:px-6 py-12">
-    <div class="max-w-xl w-full">
+    <div class="editorial-wrap personal-form">
 
         <!-- Header -->
         <div class="mb-8">
@@ -13,28 +13,16 @@
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
                 Back to Profile
             </a>
-            <h1 class="font-syncopate text-3xl uppercase tracking-wider text-kec-charcoal mb-2">Edit Profile</h1>
+            <h1 class="editorial-title mb-3">Edit Profile</h1>
             <p class="text-sm text-kec-grey">Update your personal details. These appear on your Sua+ Passport.</p>
         </div>
 
-        <form method="post" class="card p-6 sm:p-8" id="profile-form" novalidate>
+        <form method="post" class="paper-panel" id="profile-form" novalidate>
             {% csrf_token %}
-
-            {% if messages %}
-            <div class="mb-6 space-y-2" role="status" aria-live="polite">
-                {% for message in messages %}
-                <div class="p-3 text-sm rounded-kec border
-                    {% if 'error' in message.tags %}bg-red-50 text-red-700 border-red-100
-                    {% else %}bg-emerald-50 text-emerald-700 border-emerald-100{% endif %}">
-                    {{ message }}
-                </div>
-                {% endfor %}
-            </div>
-            {% endif %}
 
             <!-- Read-only email -->
             <div class="mb-8 pb-6 border-b border-gray-100">
-                <label for="email_display" class="block text-xs font-semibold text-kec-grey uppercase tracking-wider mb-2">
+                <label for="email_display" class="block text-sm font-semibold text-kec-grey mb-2">
                     Email <span class="normal-case font-normal">(cannot be changed)</span>
                 </label>
                 <div class="relative">
@@ -47,16 +35,16 @@
 
             <!-- Personal -->
             <fieldset class="space-y-5 mb-8">
-                <legend class="text-[11px] font-bold text-kec-charcoal uppercase tracking-wider mb-4">Personal</legend>
+                <legend class="text-xs font-bold text-kec-charcoal uppercase tracking-wider mb-4">Personal</legend>
 
                 <div>
-                    <label for="full_name" class="block text-xs font-semibold text-kec-grey uppercase tracking-wider mb-2">Full Name</label>
+                    <label for="full_name" class="block text-sm font-semibold text-kec-grey mb-2">Full Name</label>
                     <input type="text" name="full_name" id="full_name" value="{{ person.full_name }}"
                            class="form-input w-full" required maxlength="200" autocomplete="name">
                 </div>
 
                 <div>
-                    <label for="title" class="block text-xs font-semibold text-kec-grey uppercase tracking-wider mb-2">Title</label>
+                    <label for="title" class="block text-sm font-semibold text-kec-grey mb-2">Title</label>
                     <select name="title" id="title" class="form-input w-full" autocomplete="honorific-prefix">
                         <option value="">No title</option>
                         <option value="Prof." {% if person.title == 'Prof.' %}selected{% endif %}>Prof.</option>
@@ -73,10 +61,10 @@
 
             <!-- Work or study -->
             <fieldset class="space-y-5 mb-8">
-                <legend class="text-[11px] font-bold text-kec-charcoal uppercase tracking-wider mb-4">Work or study</legend>
+                <legend class="text-xs font-bold text-kec-charcoal uppercase tracking-wider mb-4">Work or study</legend>
 
                 <div>
-                    <label for="category" class="block text-xs font-semibold text-kec-grey uppercase tracking-wider mb-2">Category</label>
+                    <label for="category" class="block text-sm font-semibold text-kec-grey mb-2">Category</label>
                     <select name="category" id="category" class="form-input w-full" required>
                         {% if person.affiliation == 'staff' %}
                             <option value="academic" {% if person.category == 'academic' %}selected{% endif %}>Academic staff</option>
@@ -90,7 +78,7 @@
                 </div>
 
                 <div>
-                    <label for="unit" class="block text-xs font-semibold text-kec-grey uppercase tracking-wider mb-2">Unit / Department</label>
+                    <label for="unit" class="block text-sm font-semibold text-kec-grey mb-2">Unit / Department</label>
                     <select name="unit" id="unit" class="form-input w-full">
                         <option value="">Select unit...</option>
                         {% for unit in units %}
@@ -111,7 +99,7 @@
 
             <!-- Contact -->
             <fieldset class="space-y-5">
-                <legend class="text-[11px] font-bold text-kec-charcoal uppercase tracking-wider mb-4">Contact</legend>
+                <legend class="text-xs font-bold text-kec-charcoal uppercase tracking-wider mb-4">Contact</legend>
 
                 {% if person.age_band == 'u18' %}
                 <p class="text-xs text-kec-grey bg-gray-50 border border-gray-100 rounded-kec p-3">
@@ -119,7 +107,7 @@
                 </p>
                 {% else %}
                 <div>
-                    <label for="phone" class="block text-xs font-semibold text-kec-grey uppercase tracking-wider mb-2">Phone Number</label>
+                    <label for="phone" class="block text-sm font-semibold text-kec-grey mb-2">Phone Number</label>
                     <input type="tel" name="phone" id="phone" value="{{ person.phone|default:'' }}"
                            class="form-input w-full" placeholder="024 000 0000"
                            inputmode="tel" autocomplete="tel" maxlength="20"

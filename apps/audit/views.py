@@ -1,19 +1,22 @@
 """Governance views - Data Subject Requests and Audit Logs."""
 
 import json
+
 from django.contrib import messages
-from django.contrib.admin.views.decorators import staff_member_required
+from django.contrib.auth.decorators import login_required
 from django.core.serializers.json import DjangoJSONEncoder
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 
+from apps.accounts.permissions import require_capability
 from apps.audit.models import AuditEvent
 from apps.audit.services import log_event
 from apps.registry.models import Person
 
 
-@staff_member_required
+@login_required
+@require_capability("data_subject_requests")
 def dsr_dashboard(request):
     """List people to manage DSRs, with search."""
     q = request.GET.get("q", "").strip()
@@ -48,7 +51,8 @@ def dsr_dashboard(request):
     )
 
 
-@staff_member_required
+@login_required
+@require_capability("data_subject_requests")
 def dsr_export(request, person_id):
     """Export all data for a person as a JSON file."""
     person = get_object_or_404(Person, id=person_id)
@@ -85,7 +89,8 @@ def dsr_export(request, person_id):
     return response
 
 
-@staff_member_required
+@login_required
+@require_capability("data_subject_requests")
 def dsr_erase(request, person_id):
     """Anonymise a person's data to satisfy the Right to Erasure."""
     person = get_object_or_404(Person, id=person_id)
@@ -117,7 +122,8 @@ def dsr_erase(request, person_id):
     return render(request, "audit/dsr_erase.html", {"person": person})
 
 
-@staff_member_required
+@login_required
+@require_capability("audit")
 def audit_log_list(request):
     """Read-only list of all audit events."""
     events = AuditEvent.objects.select_related("actor").order_by("-at")[:500]

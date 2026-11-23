@@ -1,10 +1,10 @@
-﻿{% extends 'base.html' %}
-{% load static %}
+{% extends 'base.html' %}
+{% load static frontend %}
 
 {% block title %}{{ memo.period_label }} - Sua+ Memo{% endblock %}
 
 {% block content %}
-<div class="max-w-4xl mx-auto px-4 sm:px-6 py-8 md:py-12 pb-32">
+<div class="editorial-wrap memo-document">
 
     <!-- Toolbar (hidden on print) -->
     <div class="print:hidden mb-6 md:mb-8">
@@ -15,7 +15,7 @@
 
     <!-- Header -->
     <div class="mb-8 md:mb-10">
-        <h1 class="font-syncopate text-2xl sm:text-3xl md:text-4xl uppercase tracking-wider md:tracking-widest text-kec-charcoal mb-3 break-words">
+        <h1 class="editorial-title mb-3">
             {{ memo.period_label }}
         </h1>
         <p class="text-xs sm:text-sm text-kec-grey mb-2">
@@ -30,12 +30,6 @@
 
     <hr class="border-gray-200 mb-8 md:mb-10">
 
-    {% if messages %}
-        {% for message in messages %}
-            <div class="mb-6 p-3 bg-red-50 text-kec-red text-sm rounded-kec print:hidden">{{ message }}</div>
-        {% endfor %}
-    {% endif %}
-
     <!-- Toolbar buttons -->
     <div class="flex flex-col sm:flex-row gap-3 mb-8 md:mb-10 print:hidden">
         <a href="?export=csv" class="btn-secondary w-full sm:w-auto text-center">Download CSV</a>
@@ -44,8 +38,8 @@
         <button onclick="window.print()" class="btn-secondary w-full sm:w-auto">
             Print / Save as PDF
         </button>
-        {% if memo.narrative %}
-            <a href="data:text/plain;charset=utf-8,{{ memo.narrative|urlencode }}" 
+        {% if display_narrative %}
+            <a href="data:text/plain;charset=utf-8,{{ display_narrative|urlencode }}"
                download="{{ memo.period_label|slugify }}-memo.txt" 
                class="btn-secondary w-full sm:w-auto text-center">
                 Download as text
@@ -57,7 +51,7 @@
     <div class="mb-8 md:mb-12">
         <p class="text-xs font-bold text-kec-red uppercase tracking-widest mb-4">Narrative</p>
         <div class="border border-gray-200 rounded-kec p-4 sm:p-6 bg-white">
-            <pre class="font-mono text-[10px] sm:text-xs text-kec-charcoal whitespace-pre-wrap break-words leading-relaxed">{{ memo.narrative }}</pre>
+            <pre class="memo-prose">{{ display_narrative|frontend_text }}</pre>
         </div>
     </div>
 
@@ -69,7 +63,7 @@
                 View raw figures
             </summary>
             <div class="mt-4 border border-gray-200 rounded-kec p-4 sm:p-6 bg-gray-50 overflow-x-auto">
-                <pre class="font-mono text-[10px] sm:text-xs text-kec-charcoal whitespace-pre-wrap leading-relaxed">{{ display_figures }}</pre>
+                <pre class="font-mono text-xs text-kec-charcoal whitespace-pre-wrap leading-relaxed">{{ display_figures }}</pre>
             </div>
         </details>
     </div>
@@ -107,7 +101,7 @@
         .border { border-color: #E5E7EB !important; }
         pre { 
             white-space: pre-wrap !important; 
-            font-size: 10px !important;
+            font-size: 12px !important;
             break-inside: auto;
         }
         .break-words { word-break: break-word; }

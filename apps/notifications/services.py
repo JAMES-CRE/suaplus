@@ -1,15 +1,18 @@
 """Notification service - handles sending emails and recording them in the DB."""
 
+import logging
 import re
 
 from django.conf import settings
 from django.core.exceptions import ValidationError
-from django.core.validators import validate_email
 from django.core.mail import send_mail
+from django.core.validators import validate_email
 from django.utils import timezone
 
-from apps.notifications.models import Notification, NotificationTemplate
 from apps.accounts.models import RoleAssignment
+from apps.notifications.models import Notification, NotificationTemplate
+
+logger = logging.getLogger(__name__)
 
 
 def send_notification(person, template_key, context=None):
@@ -62,6 +65,7 @@ def send_notification(person, template_key, context=None):
         notification.save(update_fields=["status", "sent_at"])
         print(f"✉️ Sent '{template_key}' to {person.email}")
     except Exception as e:
+        logger.exception("Notification email delivery failed.")
         notification.status = "failed"
         notification.last_error = str(e)
         notification.save(update_fields=["status", "last_error"])
@@ -139,6 +143,7 @@ def send_correction_request_to_facilitators(correction):
             notification.sent_at = timezone.now()
             notification.save(update_fields=["status", "sent_at"])
         except Exception as exc:
+            logger.exception("Notification email delivery failed.")
             notification.status = "failed"
             notification.last_error = str(exc)
             notification.save(update_fields=["status", "last_error"])
@@ -199,6 +204,7 @@ def send_passport_link_to_partner_coordinators(person, session_title, passport_u
             notification.save(update_fields=["status", "sent_at"])
             sent_count += 1
         except Exception as exc:
+            logger.exception("Notification email delivery failed.")
             notification.status = "failed"
             notification.last_error = str(exc)
             notification.save(update_fields=["status", "last_error"])
@@ -268,6 +274,7 @@ def send_passport_link_to_guardian(person, session_title, passport_url):
         notification.save(update_fields=["status", "sent_at"])
         return True
     except Exception as exc:
+        logger.exception("Guardian notification email delivery failed.")
         notification.status = "failed"
         notification.last_error = str(exc)
         notification.save(update_fields=["status", "last_error"])

@@ -1,32 +1,30 @@
-from django.contrib import admin
-from django.contrib import messages
+from typing import ClassVar
+
+from django.contrib import admin, messages
 from django.db import transaction
 from django.urls import reverse
-from django.utils.html import format_html
 from django.utils import timezone
+from django.utils.html import format_html
 
 from apps.audit.services import log_event
-from apps.library.views import _can_edit_library
 from apps.library.versioning import record_library_publication
+from apps.library.views import _can_edit_library
+
 from .models import (
     CertificationCatalogue,
     CertificationCompetency,
-    CrosswalkDraft,
-    DomainDraft,
-    EvidenceRuleDraft,
-    FrameworkDraft,
-    LibraryVersion,
-    LevelDraft,
-)
-
-
-from .models import (
     Competency,
     Crosswalk,
+    CrosswalkDraft,
     Domain,
+    DomainDraft,
     EvidenceRule,
+    EvidenceRuleDraft,
     Framework,
+    FrameworkDraft,
     Level,
+    LevelDraft,
+    LibraryVersion,
     SurveyTemplate,
 )
 
@@ -42,7 +40,7 @@ class FrameworkAdmin(admin.ModelAdmin):
     list_display = ("code", "name", "is_knust", "status", "version")
     list_filter = ("is_knust", "status")
     search_fields = ("code", "name", "publisher")
-    inlines = []
+    inlines: ClassVar[list] = []
 
     def has_add_permission(self, request):
         return False
@@ -917,7 +915,7 @@ class CertificationCatalogueAdmin(admin.ModelAdmin):
     list_display = ("issuer", "title", "renewal_months", "active", "auto_approve", "where_used_link")
     list_filter = ("active", "auto_approve", "issuer")
     search_fields = ("issuer", "title")
-    inlines = [CertificationCompetencyInline]
+    inlines: ClassVar[list] = [CertificationCompetencyInline]
 
     @admin.display(description="Where used")
     def where_used_link(self, obj):

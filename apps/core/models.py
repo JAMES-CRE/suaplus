@@ -1,4 +1,4 @@
-
+from typing import ClassVar
 
 from django.db import models
 
@@ -16,7 +16,7 @@ class TimeStampedModel(models.Model):
 class AcademicPeriod(TimeStampedModel):
     """Academic year and semester, e.g. 2025/2026 semester 1."""
 
-    SEMESTER_CHOICES = [
+    SEMESTER_CHOICES: ClassVar[list] = [
         (0, "Full year"),
         (1, "First semester"),
         (2, "Second semester"),
@@ -30,8 +30,8 @@ class AcademicPeriod(TimeStampedModel):
     end_date = models.DateField()
 
     class Meta:
-        ordering = ["-year_start", "semester"]
-        constraints = [
+        ordering: ClassVar[list] = ["-year_start", "semester"]
+        constraints: ClassVar[list] = [
             models.UniqueConstraint(
                 fields=["year_start", "year_end", "semester"],
                 name="uniq_academic_period",

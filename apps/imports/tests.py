@@ -3,6 +3,7 @@ from django.contrib.auth import get_user_model
 from django.urls import reverse
 
 from apps.accounts.models import RoleAssignment, UserAccount
+from apps.accounts.tests.helpers import force_login_with_mfa
 from apps.programmes.models import Programme
 from apps.registry.models import Person
 from apps.sessions.models import Attendance, ImportMappingTemplate, Session
@@ -38,7 +39,7 @@ def test_import_preview_validates_email_name_and_conflicts(client):
         full_name="Second Match",
         email="ambiguous@example.org",
     )
-    client.force_login(user)
+    force_login_with_mfa(client, user)
 
     import_state = client.session
     import_state["import_session_id"] = session.id
@@ -122,7 +123,7 @@ def test_import_commit_issues_passport_link_for_each_new_attendance(client, monk
         mode="in_person",
         status="open",
     )
-    client.force_login(user)
+    force_login_with_mfa(client, user)
     state = client.session
     state["import_session_id"] = session.id
     state["import_preview"] = [
@@ -131,10 +132,10 @@ def test_import_commit_issues_passport_link_for_each_new_attendance(client, monk
     state.save()
     issued = []
     monkeypatch.setattr(
-        "apps.imports.views.issue_passport_link",
+        "apps.passport.linking.issue_passport_link",
         lambda person: issued.append(person) or "https://suaplus.example/p/new/",
     )
-    monkeypatch.setattr("apps.imports.views.send_passport_link_to_participant", lambda **kwargs: [])
+    monkeypatch.setattr("apps.notifications.services.send_passport_link_to_participant", lambda **kwargs: [])
 
     response = client.post(reverse("import_commit"))
 
@@ -162,7 +163,7 @@ def test_import_mapping_can_be_saved_and_reused(client):
         mode="in_person",
         status="open",
     )
-    client.force_login(user)
+    force_login_with_mfa(client, user)
     mapping = ImportMappingTemplate.objects.create(
         name="Saved list",
         column_map={"email": "Work Email", "name": "Participant"},

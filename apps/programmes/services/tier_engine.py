@@ -3,23 +3,27 @@
 Runs nightly via Celery. Idempotent: safe to run multiple times.
 """
 
+import logging
 from dataclasses import dataclass, field
 from datetime import timedelta
 
+from dateutil.relativedelta import relativedelta
+
 from django.db import transaction
-from django.db.models import Avg, Count
+from django.db.models import Avg, Q
 from django.utils import timezone
 
-from apps.library.models import Level
 from apps.passport.models import Evidence
+from apps.passport.querysets import valid_evidence
 from apps.programmes.models import (
-    Nomination,
     Programme,
     TierCriterion,
     TierStatus,
 )
 from apps.registry.models import Person
 from apps.sessions.models import Attendance, Facilitation, SurveyResponse
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -47,6 +51,44 @@ class TierEvaluation:
         return self.criteria_total > 0 and self.criteria_met == self.criteria_total
 
 
+def _programme_evidence(person, programme):
+    return (
+        valid_evidence()
+        .filter(
+            person=person,
+            competency__in=programme.competency_targets.values("competency"),
+        )
+        .exclude(type="self")
+    )
+
+
+def _completed_facilitations(person, programme):
+    return Facilitation.objects.filter(
+        person=person,
+        session__programme=programme,
+        session__status="closed",
+        session__end_at__lte=timezone.now(),
+        session__attendances__status="completed",
+    ).distinct()
+
+
+def _recent_activity(person, programme, cutoff):
+    return (
+        _programme_evidence(person, programme).filter(assessed_at__gte=cutoff).exists()
+        or Attendance.objects.filter(
+            person=person,
+            session__programme=programme,
+            status="completed",
+            check_out_at__gte=cutoff,
+        )
+        .exclude(session__status="cancelled")
+        .exists()
+        or _completed_facilitations(person, programme)
+        .filter(session__end_at__gte=cutoff)
+        .exists()
+    )
+
+
 def _check_min_level(criterion, person, programme):
     """Is the person at the required level on the required competency?"""
     params = criterion.parameters
@@ -57,14 +99,11 @@ def _check_min_level(criterion, person, programme):
     if not code:
         return CriterionResult(criterion, False, "no competency specified")
 
-    ev_qs = Evidence.objects.filter(
-        person=person,
+    ev_qs = _programme_evidence(person, programme).filter(
         competency__code=code,
-        status="valid",
-        type__in=required_evidence if required_evidence else [
-            "self", "task", "assessor", "artefact", "external", "attendance",
-        ],
-    ).exclude(type="self")  # self-reported never counts toward tiers
+    )
+    if required_evidence:
+        ev_qs = ev_qs.filter(type__in=required_evidence)
 
     if not ev_qs.exists():
         return CriterionResult(criterion, False, f"no valid evidence for {code}")
@@ -85,16 +124,36 @@ def _check_required_credential(criterion, person, programme):
 
     from apps.passport.models import Credential
 
-    cred = Credential.objects.filter(
-        person=person,
-        title__icontains=credential_title,
-        review_status="approved",
-        status="valid",
-    ).exclude(expires_at__lt=timezone.now().date()).first()
+    cred = (
+        Credential.objects.filter(
+            person=person,
+            title__icontains=credential_title,
+            review_status="approved",
+            status="valid",
+        )
+        .filter(
+            Q(
+                catalogue__active=True,
+                catalogue__competencies__competency__in=programme.competency_targets.values(
+                    "competency"
+                ),
+            )
+            | Q(
+                internalassessment__competency__in=programme.competency_targets.values(
+                    "competency"
+                ),
+                internalassessment__attendance__status="completed",
+            )
+        )
+        .exclude(expires_at__lt=timezone.localdate())
+        .first()
+    )
 
     met = cred is not None
     return CriterionResult(
-        criterion, met, f"credential '{credential_title}' {'found' if met else 'missing'}"
+        criterion,
+        met,
+        f"credential '{credential_title}' {'found' if met else 'missing'}",
     )
 
 
@@ -102,47 +161,41 @@ def _check_min_sessions(criterion, person, programme):
     """Has the person co-facilitated enough sessions?"""
     params = criterion.parameters
     required = params.get("sessions", 2)
-    count = Facilitation.objects.filter(
-        person=person, session__programme=programme
-    ).count()
-    met = count >= required
-    return CriterionResult(
-        criterion, met, f"{count} sessions (need {required})"
+    count = (
+        _completed_facilitations(person, programme)
+        .values("session_id")
+        .distinct()
+        .count()
     )
+    met = count >= required
+    return CriterionResult(criterion, met, f"{count} sessions (need {required})")
 
 
 def _check_min_mean_csat(criterion, person, programme):
     """Is the mean CSAT of their sessions above the threshold?"""
     params = criterion.parameters
     threshold = params.get("threshold", 4.0)
-    sessions = Facilitation.objects.filter(
-        person=person, session__programme=programme
-    ).values_list("session_id", flat=True)
+    sessions = _completed_facilitations(person, programme).values_list(
+        "session_id", flat=True
+    )
     response_qs = SurveyResponse.objects.filter(
-        attendance__session_id__in=sessions, type="exit", csat__isnull=False
+        attendance__session_id__in=sessions,
+        attendance__status="completed",
+        type="exit",
+        csat__isnull=False,
     )
     avg = response_qs.aggregate(Avg("csat"))["csat__avg"] or 0
     met = avg >= threshold
-    return CriterionResult(
-        criterion, met, f"mean CSAT {avg:.1f} (need {threshold})"
-    )
+    return CriterionResult(criterion, met, f"mean CSAT {avg:.1f} (need {threshold})")
 
 
 def _check_recency_window(criterion, person, programme):
     """Has the person had any activity within the last N months?"""
     params = criterion.parameters
     months = params.get("months", 12)
-    cutoff = timezone.now() - timedelta(days=months * 30)
-    recent_evidence = Evidence.objects.filter(
-        person=person, assessed_at__gte=cutoff
-    ).exists()
-    recent_attendance = Attendance.objects.filter(
-        person=person, check_in_at__gte=cutoff
-    ).exists()
-    met = recent_evidence or recent_attendance
-    return CriterionResult(
-        criterion, met, f"active in last {months} months: {met}"
-    )
+    cutoff = timezone.now() - relativedelta(months=months)
+    met = _recent_activity(person, programme, cutoff)
+    return CriterionResult(criterion, met, f"active in last {months} months: {met}")
 
 
 def evaluate_tier(person, programme, tier):
@@ -203,6 +256,12 @@ def compute_tier_status(programme=None):
                 )
             )
 
+            person_ids |= set(
+                TierStatus.objects.filter(programme=prog).values_list(
+                    "person_id", flat=True
+                )
+            )
+
             tiers_defined = (
                 TierCriterion.objects.filter(programme=prog)
                 .values_list("tier", flat=True)
@@ -210,15 +269,24 @@ def compute_tier_status(programme=None):
             )
 
             for person_id in person_ids:
-                person = Person.objects.filter(id=person_id).first()
+                person = Person.objects.filter(
+                    id=person_id, is_anonymised=False, merged_into__isnull=True
+                ).first()
                 if not person:
                     continue
                 for tier in tiers_defined:
                     try:
-                        evaluation = evaluate_tier(person, prog, tier)
-                        _write_tier_status(evaluation, prog, tier)
+                        with transaction.atomic():
+                            evaluation = evaluate_tier(person, prog, tier)
+                            _write_tier_status(evaluation, prog, tier)
                         summary["statuses_written"] += 1
                     except Exception:
+                        logger.exception(
+                            "Tier evaluation failed for person=%s programme=%s tier=%s",
+                            person_id,
+                            prog.pk,
+                            tier,
+                        )
                         summary["errors"] += 1
 
     return summary
@@ -236,27 +304,21 @@ def _write_tier_status(evaluation, programme, tier):
         person_id=evaluation.person_id, programme=programme, tier=tier
     ).first()
 
-    # Never downgrade an approved or dormant status by fresh evaluation alone;
-    # only the dormancy check below may transition approved → dormant.
+    # Evaluation cannot silently approve a nomination. Approved trainers can
+    # become dormant, and resume their approval when valid programme activity returns.
     if existing and existing.status in ("approved", "dormant"):
-        if existing.status == "approved":
-            cutoff = timezone.now() - timedelta(days=365)
-            has_recent = (
-                Evidence.objects.filter(
-                    person_id=evaluation.person_id, assessed_at__gte=cutoff
-                ).exists()
-                or Attendance.objects.filter(
-                    person_id=evaluation.person_id, check_in_at__gte=cutoff
-                ).exists()
-                or Facilitation.objects.filter(
-                    person_id=evaluation.person_id,
-                    session__start_at__gte=cutoff,
-                ).exists()
-            )
-            if not has_recent:
-                existing.status = "dormant"
-                existing.save(update_fields=["status"])
+        cutoff = timezone.now() - timedelta(days=365)
+        next_status = (
+            "approved"
+            if _recent_activity(existing.person, programme, cutoff)
+            else "dormant"
+        )
+        if existing.status != next_status:
+            existing.status = next_status
+            existing.save(update_fields=["status", "updated_at"])
         return existing
+    if existing and existing.status == "nominated":
+        status = "nominated"
 
     obj, _ = TierStatus.objects.update_or_create(
         person_id=evaluation.person_id,

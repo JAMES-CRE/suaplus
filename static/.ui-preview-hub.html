@@ -1,0 +1,219 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#D1121C">
+    <title>Sua+ Hub</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/css/main.css">
+    <script src="/static/js/htmx.min.js" defer></script>
+    <script src="/static/js/navigation.js" defer></script>
+</head>
+<body class="app-shell min-h-[100svh] bg-[#F8F9FA]">
+    <a href="#main-content" class="skip-link">Skip to main content</a>
+    <button class="sidebar-backdrop" type="button" aria-label="Close navigation" tabindex="-1" hidden></button>
+    
+<aside id="app-sidebar" class="app-sidebar" aria-label="Sua+ navigation">
+    <div class="sidebar-brand">
+        <a href="/hub/" class="flex items-center gap-3 text-kec-charcoal" aria-label="Sua+ Hub home">
+            <img src="/static/img/kec-logo.png" alt="KNUST E-Learning Centre" class="h-10 shrink-0">
+            <span><span class="block text-xl font-bold tracking-tight">Sua+</span><span class="block text-xs text-kec-grey">Learning workspace</span></span>
+        </a>
+        <button id="sidebar-close" type="button" class="sidebar-toggle shrink-0" aria-label="Close navigation">
+            <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" d="m6 6 12 12M6 18 18 6"/></svg>
+        </button>
+    </div>
+    <nav aria-label="Main navigation" class="sidebar-nav">
+        <p class="px-3 mb-3 text-xs font-semibold uppercase tracking-widest text-kec-grey">Workspace</p>
+        
+        <a href="/hub/" class="app-sidebar-link" aria-current="page">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1Z"/></svg><span>Overview</span>
+        </a>
+        <a href="/my-passport/" class="app-sidebar-link" >
+            <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="3" width="14" height="18" rx="2"/><circle cx="12" cy="10" r="3"/><path d="M8 17h8M5 6H3m2 6H3m2 6H3"/></svg><span>My passport</span>
+        </a>
+        
+        <a href="/sessions/" class="app-sidebar-link" >
+            <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 11h18m-13 5h3"/></svg><span>Sessions</span>
+        </a>
+        
+        
+        <a href="/credentials/review/" class="app-sidebar-link" >
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-4M9 3v6h6M9 3l6 6m-7 6 3 3L21 8"/></svg><span>Credential reviews</span>
+        </a>
+        
+        
+        <a href="/dashboard/" class="app-sidebar-link" >
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 3v18h17M8 16v-5m5 5V7m5 9v-7"/></svg><span>Reports</span>
+        </a>
+        
+        
+        <a href="/library/" class="app-sidebar-link" >
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 6c-3-2-6-2-9-1v15c3-1 6-1 9 1m0-15c3-2 6-2 9-1v15c-3-1-6-1-9 1V6"/></svg><span>Competency library</span>
+        </a>
+        
+        
+    </nav>
+    <div class="sidebar-footer">
+        
+        <p class="text-sm font-semibold text-kec-charcoal">Your Sua+ workspace</p>
+        <p class="text-xs text-kec-grey mt-1 break-words">demo@example.com</p>
+        
+    </div>
+</aside>
+
+    <div class="app-body" id="app-body">
+    <header class="sticky top-0 z-40 bg-white border-b border-gray-200 shrink-0">
+        <div class="w-full max-w-6xl mx-auto px-4 sm:px-6 min-h-[64px] flex items-center justify-between gap-3">
+            <div class="flex items-center gap-3">
+                <button id="sidebar-toggle" type="button" class="sidebar-toggle" aria-label="Open navigation" aria-controls="app-sidebar" aria-expanded="false">
+                    <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" d="M4 6h16M4 12h16M4 18h16"/></svg>
+                    <span>Menu</span>
+                </button>
+                <a href="/hub/" class="shrink-0 lg:hidden" aria-label="Sua+ Hub home"><img src="/static/img/kec-logo.png" alt="KNUST E-Learning Centre" class="h-10"></a>
+                <span class="hidden lg:block text-sm font-medium text-kec-grey">KNUST E-Learning Centre</span>
+            </div>
+            
+                <a href="/accounts/logout/" class="app-nav-link">Sign out</a>
+            
+        </div>
+    </header>
+    <main id="main-content" tabindex="-1" class="flex-grow flex flex-col min-w-0">
+        
+        
+<div class="w-full max-w-5xl mx-auto px-4 sm:px-6 py-8 md:py-12 pb-12">
+
+    <!-- Header -->
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between mb-6 gap-4">
+        <div>
+            <h1 class="font-sans text-kec-charcoal mb-2 text-2xl sm:text-3xl font-semibold tracking-tight leading-tight">
+                Sua+ Hub
+            </h1>
+            <p class="text-base text-kec-grey">
+                Welcome, Demo learner
+            </p>
+        </div>
+        
+    </div>
+
+    
+<section aria-labelledby="today-heading" class="mb-8">
+    <h2 id="today-heading" class="text-xl font-semibold mb-4">Coming up</h2>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        
+        <div class="task-card flex flex-col items-start">
+            <p class="text-sm font-medium text-kec-grey mb-2">Next workshop</p>
+            <h3 class="task-card-title break-words">Digital teaching workshop</h3>
+            <p class="text-sm text-kec-grey">Wed 18 Nov 2026, 10:00 · Digital pedagogy</p>
+            <p class="text-sm text-kec-grey mt-1">KNUST E-Learning Centre</p>
+            <a href="/sessions/1/console/" class="btn-secondary btn-sm mt-5">Manage workshop</a>
+        </div>
+        
+        
+        <div class="task-card border-amber-200 bg-amber-50 flex flex-col items-start">
+            <h3 class="task-card-title">2 credentials awaiting review</h3>
+            <p class="text-sm text-kec-grey">From your assigned programmes and units.</p>
+            <a href="/credentials/review/" class="btn-secondary btn-sm mt-5">Open review queue</a>
+        </div>
+        
+    </div>
+</section>
+
+
+    <h2 class="text-xl font-semibold mb-4">More tools</h2>
+
+    <!-- Menu Grid -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+
+        <!-- SCOUT LIST (Programme Owners & Admins) -->
+        
+        <a href="/scout/" class="border border-gray-200 rounded-xl p-6 hover:border-kec-red transition-colors group bg-white flex flex-col">
+            <div class="w-10 h-10 rounded-lg bg-red-50 flex items-center justify-center text-kec-red mb-4 group-hover:bg-red-100 transition-colors">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"></path></svg>
+            </div>
+            <h3 class="text-lg text-kec-charcoal font-semibold mb-2 group-hover:text-kec-red">Find eligible trainers</h3>
+            <p class="text-sm text-kec-grey leading-relaxed flex-grow">See who is eligible for a trainer tier and nominate them.</p>
+        </a>
+        
+
+        <!-- NOMINATIONS (Programme Owners & Admins) -->
+        
+        <a href="/nominations/" class="border border-gray-200 rounded-xl p-6 hover:border-kec-red transition-colors group bg-white flex flex-col">
+            <div class="w-10 h-10 rounded-lg bg-red-50 flex items-center justify-center text-kec-red mb-4 group-hover:bg-red-100 transition-colors">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+            </div>
+            <h3 class="text-lg text-kec-charcoal font-semibold mb-2 group-hover:text-kec-red">Nominations</h3>
+            <p class="text-sm text-kec-grey leading-relaxed flex-grow">Review and approve pending trainer nominations.</p>
+        </a>
+        
+
+        <!-- EXECUTIVE MEMOS (Executives & Admins) -->
+        
+        <a href="/memos/" class="border border-gray-200 rounded-xl p-6 hover:border-kec-red transition-colors group bg-white flex flex-col">
+            <div class="w-10 h-10 rounded-lg bg-red-50 flex items-center justify-center text-kec-red mb-4 group-hover:bg-red-100 transition-colors">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+            </div>
+            <h3 class="text-lg text-kec-charcoal font-semibold mb-2 group-hover:text-kec-red">Executive Memos</h3>
+            <p class="text-sm text-kec-grey leading-relaxed flex-grow">Generate and print termly reports for the Vice-Chancellor.</p>
+        </a>
+        
+
+        <!-- PARTNER REPORTS (Executives & Admins) -->
+        
+        <a href="/partners/" class="border border-gray-200 rounded-xl p-6 hover:border-kec-red transition-colors group bg-white flex flex-col">
+            <div class="w-10 h-10 rounded-lg bg-red-50 flex items-center justify-center text-kec-red mb-4 group-hover:bg-red-100 transition-colors">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
+            </div>
+            <h3 class="text-lg text-kec-charcoal font-semibold mb-2 group-hover:text-kec-red">Partner Reports</h3>
+            <p class="text-sm text-kec-grey leading-relaxed flex-grow">View reach and impact for external partner organisations.</p>
+        </a>
+        
+
+        <!-- DATA REQUESTS & AUDIT (Admins Only) -->
+        
+        <a href="/admin-tools/dsr/" class="border border-gray-200 rounded-xl p-6 hover:border-kec-red transition-colors group bg-white flex flex-col">
+            <div class="w-10 h-10 rounded-lg bg-red-50 flex items-center justify-center text-kec-red mb-4 group-hover:bg-red-100 transition-colors">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+            </div>
+            <h3 class="text-lg text-kec-charcoal font-semibold mb-2 group-hover:text-kec-red">Data Requests</h3>
+            <p class="text-sm text-kec-grey leading-relaxed flex-grow">Export or anonymise participant data for DPA compliance.</p>
+        </a>
+        
+
+        <!-- CREDENTIALS (Everyone) -->
+        <a href="/credentials/submit/" class="border border-gray-200 rounded-xl p-6 hover:border-kec-red transition-colors group bg-white flex flex-col">
+            <div class="w-10 h-10 rounded-lg bg-red-50 flex items-center justify-center text-kec-red mb-4 group-hover:bg-red-100 transition-colors">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+            </div>
+            <h3 class="text-lg text-kec-charcoal font-semibold mb-2 group-hover:text-kec-red">Add a credential</h3>
+            <p class="text-sm text-kec-grey leading-relaxed flex-grow">Upload an external certificate (e.g., Google) for approval.</p>
+        </a>
+
+        <!-- ACADEMIC CALENDAR (Admins Only) -->
+        
+        <a href="/calendar/" class="border border-gray-200 rounded-xl p-6 hover:border-kec-red transition-colors group bg-white flex flex-col">
+            <div class="w-10 h-10 rounded-lg bg-red-50 flex items-center justify-center text-kec-red mb-4 group-hover:bg-red-100 transition-colors">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+            </div>
+            <h3 class="text-lg text-kec-charcoal font-semibold mb-2 group-hover:text-kec-red">Academic Calendar</h3>
+            <p class="text-sm text-kec-grey leading-relaxed flex-grow">Manage the semesters used for KPIs and headcounts.</p>
+        </a>
+        
+
+    </div>
+</div>
+
+    </main>
+    <footer class="bg-white border-t border-gray-200 shrink-0">
+        <div class="w-full max-w-6xl mx-auto px-4 sm:px-6 py-6 flex flex-col sm:flex-row items-center justify-between gap-3 text-center sm:text-left">
+            <p class="text-sm text-gray-600">© 2026 KNUST E-Learning Centre. All rights reserved.</p>
+        </div>
+    </footer>
+    </div>
+    
+</body>
+</html>

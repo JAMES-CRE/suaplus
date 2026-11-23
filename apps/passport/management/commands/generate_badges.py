@@ -1,9 +1,11 @@
 ﻿"""Management command to generate missing Open Badges."""
 
 from django.core.management.base import BaseCommand
-from apps.passport.models import Credential
+
 from apps.library.models import CertificationCatalogue
+from apps.passport.models import Credential
 from apps.passport.services import generate_badge_json
+
 
 class Command(BaseCommand):
     help = "Generate Open Badges for approved credentials"

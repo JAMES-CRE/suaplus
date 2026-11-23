@@ -19,16 +19,15 @@ from apps.library.models import (
     SurveyTemplate,
 )
 
-
 SCHEMAS = {
     "frameworks": (
-        "code,name,publisher,version,source,is_knust,status".split(","),
+        ["code", "name", "publisher", "version", "source", "is_knust", "status"],
         lambda: Framework.objects.order_by("code").values_list(
             "code", "name", "publisher", "version", "source", "is_knust", "status"
         ),
     ),
     "domains": (
-        "framework_code,code,name,description,colour,display_order,status".split(","),
+        ["framework_code", "code", "name", "description", "colour", "display_order", "status"],
         lambda: Domain.objects.order_by("framework__code", "code").values_list(
             "framework__code", "code", "name", "description", "colour", "display_order", "status"
         ),
@@ -40,7 +39,7 @@ SCHEMAS = {
         ),
     ),
     "competencies": (
-        "framework_code,domain_code,code,title,description,proficient_descriptor,status,replaced_by_code".split(","),
+        ["framework_code", "domain_code", "code", "title", "description", "proficient_descriptor", "status", "replaced_by_code"],
         lambda: Competency.objects.order_by("framework__code", "code").values_list(
             "framework__code", "domain__code", "code", "title", "description",
             "proficient_descriptor", "status", "replaced_by__code"

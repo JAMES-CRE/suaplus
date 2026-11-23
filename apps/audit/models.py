@@ -1,8 +1,8 @@
 
 # Create your models here.
 """Audit models append-only log of writes and bulk views."""
+from typing import ClassVar
 
-from django.db import models
 from django.conf import settings
 from django.db import models
 
@@ -27,8 +27,8 @@ class AuditEvent(models.Model):
     at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        ordering = ["-at"]
-        indexes = [
+        ordering: ClassVar[list] = ["-at"]
+        indexes: ClassVar[list] = [
             models.Index(fields=["entity", "entity_id"]),
             models.Index(fields=["actor", "at"]),
         ]

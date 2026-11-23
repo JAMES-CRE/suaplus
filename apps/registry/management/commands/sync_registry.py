@@ -16,6 +16,6 @@ class Command(BaseCommand):
             self.style.SUCCESS(
                 "Registry sync complete: "
                 f"{result['created']} created, {result['updated']} updated, "
-                f"{result['skipped']} skipped."
+                f"{result['skipped']} skipped, {result['conflicts']} queued for identity review."
             )
         )

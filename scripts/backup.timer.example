@@ -1,0 +1,11 @@
+[Unit]
+Description=Daily Sua+ backup schedule
+
+[Timer]
+OnCalendar=*-*-* 02:17:00
+Persistent=true
+RandomizedDelaySec=300
+Unit=suaplus-backup.service
+
+[Install]
+WantedBy=timers.target

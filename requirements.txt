@@ -29,12 +29,7 @@ reportlab>=4.2
 gunicorn>=23.0
 whitenoise>=6.8
 
-# Development and testing (kept separate in production via --no-dev style split)
-pytest>=8.3
-pytest-django>=4.9
-pytest-cov>=6.0
-factory-boy>=3.3
-freezegun>=1.5
-black>=24.10
-ruff>=0.8
-django-debug-toolbar>=4.4
+
+# Direct security dependencies
+django-csp>=4.0,<5
+PyJWT[crypto]>=2.10,<3

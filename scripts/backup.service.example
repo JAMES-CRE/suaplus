@@ -1,0 +1,9 @@
+[Unit]
+Description=Sua+ authorized database backup
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/suaplus
+ExecStart=/usr/bin/docker compose --env-file /opt/suaplus/.env.deploy --profile backup run --rm backup

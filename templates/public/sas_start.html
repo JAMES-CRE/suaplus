@@ -1,31 +1,3 @@
 ﻿{% extends 'base.html' %}
-{% load static %}
-
-{% block title %}Start Self-Assessment  Sua+{% endblock %}
-
-{% block content %}
-<div class="max-w-xl mx-auto px-4 sm:px-6 py-16 md:py-24 text-center">
-
-    <h1 class="font-syncopate text-4xl md:text-5xl uppercase tracking-widest text-kec-charcoal mb-6">
-        Start your Sua+
-    </h1>
-
-    <p class="text-base text-kec-grey max-w-md mx-auto mb-10">
-        Enter your KNUST email address. We will send you a secure link to begin your 15-minute baseline self-assessment.
-    </p>
-
-    {% if error %}
-        <div class="mb-6 p-4 bg-red-50 text-kec-red text-sm rounded-kec">{{ error }}</div>
-    {% endif %}
-
-    <form method="post" class="max-w-sm mx-auto">
-        {% csrf_token %}
-        <input type="email" name="email" placeholder="name@st.knust.edu.gh" required class="form-input mb-4 text-center">
-        <button type="submit" class="btn-primary w-full font-syncopate uppercase tracking-wider text-base">
-            Send me the link
-        </button>
-    </form>
-
-</div>
-{% endblock %}
-
+{% block title %}Start self-assessment &middot; Sua+{% endblock %}
+{% block content %}<div class="entry-layout"><div class="entry-heading"><p class="eyebrow">Start with what you know</p><h1 class="editorial-title">Your starting point,<br>not your finish line.</h1><p class="editorial-description">A guided self-assessment helps you reflect on your digital skills and choose what to develop next.</p><ol class="entry-steps"><li><span>01</span>Receive your secure email link</li><li><span>02</span>Confirm your details and rate your skills</li><li><span>03</span>Open your competency passport</li></ol></div><div class="entry-form"><h2 class="text-xl font-medium mb-4">Start your self-assessment</h2><p class="field-hint mb-6">Allow about 15 minutes. You can return to a draft in the same browser tab.</p>{% if error %}<div id="assessment-email-error" role="alert" class="form-error-summary">{{ error }}</div>{% endif %}<form method="post">{% csrf_token %}<label for="assessment-email" class="form-label">KNUST email address</label><input id="assessment-email" type="email" name="email" value="{{ request.POST.email|default:'' }}" autocomplete="email" autocapitalize="none" spellcheck="false" placeholder="name@knust.edu.gh" required aria-describedby="assessment-email-hint{% if error %} assessment-email-error{% endif %}"{% if error %} aria-invalid="true"{% endif %} class="form-input"><p id="assessment-email-hint" class="field-hint mb-6">Use your @knust.edu.gh or @st.knust.edu.gh address.</p><button type="submit" class="btn-primary w-full">Email my assessment link </button></form><p class="field-hint mt-6">Already have a record? <a href="{% url 'resend_link' %}" class="text-link">Find your passport</a></p></div></div>{% endblock %}

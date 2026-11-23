@@ -1,5 +1,6 @@
 """Performance test: Simulate 500 check-ins and measure the time."""
 
+import logging
 import time
 import uuid
 from datetime import timedelta
@@ -12,6 +13,8 @@ from django.utils import timezone
 from apps.programmes.models import Programme
 from apps.registry.models import Person
 from apps.sessions.models import Attendance, Session
+
+logger = logging.getLogger(__name__)
 
 
 class Command(BaseCommand):
@@ -85,14 +88,15 @@ class Command(BaseCommand):
                 else:
                     error_count += 1
             except Exception:
+                logger.exception("Check-in simulation failed.")
                 error_count += 1
 
         end_time = time.time()
         duration = end_time - start_time
 
         # 4. Report
-        self.stdout.write(self.style.SUCCESS(f"\n=== RESULTS ==="))
-        self.stdout.write(f"Total check-ins: 500")
+        self.stdout.write(self.style.SUCCESS("\n=== RESULTS ==="))
+        self.stdout.write("Total check-ins: 500")
         self.stdout.write(f"Successful: {success_count}")
         self.stdout.write(f"Errors: {error_count}")
         self.stdout.write(f"Time taken: {duration:.2f} seconds")

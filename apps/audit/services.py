@@ -1,8 +1,7 @@
 """Audit service - writes to the AuditEvent table."""
 
-from django.utils import timezone
 from apps.audit.models import AuditEvent
-import json
+
 
 def log_event(request, action, entity, entity_id, before=None, after=None):
     

@@ -4,13 +4,15 @@ Uses Gemini if the API key is set; falls back to the template otherwise.
 """
 
 import json
+import logging
+
 import requests
-from datetime import timedelta
-
 from django.conf import settings
-from django.utils import timezone
 
+from apps.accounts.permissions import is_super_admin, scope_records, scopes_for
 from apps.programmes.models import Programme
+from apps.reporting.access import reporting_scope
+from apps.reporting.exports import dashboard_rows, suppress_small_counts
 from apps.reporting.services.kpis import (
     kpi_cascade,
     kpi_coverage,
@@ -23,12 +25,13 @@ from apps.reporting.services.kpis import (
     suppress,
 )
 
+logger = logging.getLogger(__name__)
+
 
 def gather_figures(programme=None, since=None):
     """Collect all KPI figures and breakdowns into a single dict."""
     from apps.reporting.services.kpis import (
         kpi_affiliation_split,
-        kpi_cascade_top,
         kpi_coverage_by_unit,
         kpi_csat_distribution,
         kpi_evidence_by_type,
@@ -48,15 +51,15 @@ def gather_figures(programme=None, since=None):
         "coverage": kpi_coverage(programme=programme, since=since),
         "progression": kpi_progression(programme=programme, since=since),
         "csat": kpi_csat(programme=programme, since=since),
-        "cascade": kpi_cascade(programme=programme),
-        "pipeline": kpi_pipeline(programme=programme),
+        "cascade": kpi_cascade(programme=programme, since=since),
+        "pipeline": kpi_pipeline(programme=programme, since=since),
         "reach_by_unit": kpi_reach_by_unit(programme=programme, since=since),
 
         # Breakdowns
         "reach_by_gender": kpi_reach_by_gender(programme=programme, since=since),
         "reach_by_category": kpi_reach_by_category(programme=programme, since=since),
         "reach_by_rank": kpi_reach_by_rank(programme=programme, since=since),
-        "reach_by_programme": kpi_reach_by_programme(since=since),
+        "reach_by_programme": kpi_reach_by_programme(since=since, programme=programme),
         "reach_by_mode": kpi_reach_by_mode(programme=programme, since=since),
         "reach_by_region": kpi_reach_by_region(programme=programme, since=since),
         "reach_by_session_region": kpi_reach_by_session_region(
@@ -66,15 +69,24 @@ def gather_figures(programme=None, since=None):
         "csat_distribution": kpi_csat_distribution(programme=programme, since=since),
         "evidence_by_type": kpi_evidence_by_type(programme=programme, since=since),
         "sessions_by_month": kpi_sessions_by_month(programme=programme, since=since),
-        "pipeline_funnel": kpi_pipeline_funnel(),
-        "cascade_top": kpi_cascade_top(limit=10),
-        "coverage_by_unit": kpi_coverage_by_unit(programme=programme),
+        "pipeline_funnel": kpi_pipeline_funnel(programme=programme, since=since),
+        "cascade_top": [],  # Never put individual trainer identities into memo/AI figures.
+        "coverage_by_unit": kpi_coverage_by_unit(programme=programme, since=since),
     }
 
     return figures
 
 
 def generate_memo(programme=None, period_label="", since=None, created_by=None):
+    """Background and HTTP callers must supply an authorised report actor."""
+    from django.core.exceptions import PermissionDenied
+    with reporting_scope(created_by, "export_reports"):
+        if programme and not scope_records(Programme.objects.all(), created_by, "export_reports").filter(pk=programme.pk).exists():
+            raise PermissionDenied
+        return _create_memo(programme, period_label, since, created_by)
+
+
+def _create_memo(programme, period_label, since, created_by):
     """Create a Memo row with figures and a narrative."""
     from apps.reporting.models import Memo
 
@@ -84,7 +96,20 @@ def generate_memo(programme=None, period_label="", since=None, created_by=None):
     used_ai = bool(getattr(settings, "GEMINI_API_KEY", ""))
     narrative = _generate_narrative(figures, period_label, programme)
 
-    scope = {}
+    executive_rows = dashboard_rows(suppress_small_counts(figures))
+    scope = {
+        "aggregate_only": True,
+        "access_scopes": [
+            {"role": s.role, "scope_type": s.scope_type, "scope_id": s.scope_id}
+            for s in scopes_for(created_by, "export_reports")
+        ],
+        "executive_narrative": "\n".join(
+            [f"Sua+ Pulse — {period_label or 'Reporting period'}"]
+            + [f"{section} · {metric}: {value}" for section, metric, value in executive_rows]
+        ),
+    }
+    if is_super_admin(created_by):
+        scope["access_scopes"] = [{"role": "super_admin", "scope_type": "all", "scope_id": None}]
     if programme:
         scope["programme"] = programme.name
     if since:
@@ -111,8 +136,8 @@ def _generate_narrative(figures, period_label, programme):
         
     try:
         return _generate_narrative_gemini(api_key, figures, period_label, programme)
-    except Exception as e:
-        print(f"⚠️ Gemini failed ({e}), falling back to template.")
+    except Exception:
+        logger.exception("Memo provider failed; using the local template fallback.")
         return _generate_narrative_template(figures, period_label, programme)
 
 
@@ -162,7 +187,6 @@ def _generate_narrative_template(figures, period_label, programme):
 
     reach = figures["reach"]
     coverage = figures["coverage"]
-    progression = figures["progression"]
     csat = figures["csat"]
     cascade = figures["cascade"]
     pipeline = figures["pipeline"]

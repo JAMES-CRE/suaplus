@@ -1,13 +1,14 @@
+import hashlib
+import secrets
+from datetime import timedelta
+
 from celery import shared_task
 from django.conf import settings
 from django.utils import timezone
-from datetime import timedelta
-import secrets
-import hashlib
 
-from apps.sessions.models import Attendance
 from apps.notifications.services import send_notification
 from apps.registry.models import PassportToken
+from apps.sessions.models import Attendance
 
 
 @shared_task

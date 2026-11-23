@@ -1,0 +1,53 @@
+name: Verify
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-bookworm
+        env:
+          POSTGRES_USER: test_runner
+          POSTGRES_PASSWORD: disposable_test_password
+          POSTGRES_DB: suaplus_ci
+        ports: ['5432:5432']
+        options: --health-cmd="pg_isready -U test_runner" --health-interval=10s --health-timeout=5s --health-retries=10
+    env:
+      DJANGO_DEBUG: 'true'
+      DJANGO_SECRET_KEY: ci-disposable-only-secret-not-a-production-secret
+      DB_NAME: suaplus_ci
+      DB_USER: test_runner
+      DB_PASSWORD: disposable_test_password
+      DB_HOST: localhost
+      DB_PORT: '5432'
+      GOOGLE_CLIENT_ID: ''
+      GOOGLE_CLIENT_SECRET: ''
+      GEMINI_API_KEY: ''
+      SMTP_HOST: ''
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: pip install -r requirements-dev.txt
+      - run: npm ci --ignore-scripts
+      - run: npm run test:ui
+      - run: npm run build:css
+      - run: python manage.py collectstatic --noinput
+      - run: python manage.py check
+      - run: python manage.py makemigrations --check --dry-run
+      - run: python -m pytest -q --cov=apps.accounts.permissions --cov=apps.imports.views --cov=apps.programmes.services.tier_engine --cov=apps.reporting.services.kpis --cov-report=term --cov-report=json
+      - run: python scripts/check_coverage.py coverage.json
+      - run: bash -n scripts/backup_db.sh scripts/restore_db.sh
+  image:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build --tag suaplus-ci .

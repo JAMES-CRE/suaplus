@@ -1,5 +1,6 @@
 
 """Notifications models for email/SMS templates and delivery log."""
+from typing import ClassVar
 
 from django.db import models
 
@@ -9,7 +10,7 @@ from apps.registry.models import Person
 class NotificationTemplate(models.Model):
     """Editable email or SMS template."""
 
-    CHANNEL_CHOICES = [
+    CHANNEL_CHOICES: ClassVar[list] = [
         ("email", "Email"),
         ("sms", "SMS"),
     ]
@@ -27,7 +28,7 @@ class NotificationTemplate(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        ordering = ["key"]
+        ordering: ClassVar[list] = ["key"]
 
     def __str__(self):
         return f"{self.key} ({self.get_channel_display()})"
@@ -36,11 +37,11 @@ class NotificationTemplate(models.Model):
 class Notification(models.Model):
     """A single notification delivery attempt."""
 
-    CHANNEL_CHOICES = [
+    CHANNEL_CHOICES: ClassVar[list] = [
         ("email", "Email"),
         ("sms", "SMS"),
     ]
-    STATUS_CHOICES = [
+    STATUS_CHOICES: ClassVar[list] = [
         ("queued", "Queued"),
         ("sending", "Sending"),
         ("sent", "Sent"),
@@ -72,8 +73,8 @@ class Notification(models.Model):
     sent_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
-        ordering = ["-created_at"]
-        indexes = [
+        ordering: ClassVar[list] = ["-created_at"]
+        indexes: ClassVar[list] = [
             models.Index(fields=["person", "created_at"]),
             models.Index(fields=["status", "created_at"]),
         ]

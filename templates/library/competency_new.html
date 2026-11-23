@@ -3,9 +3,9 @@
 {% block title %}New Competency Draft - Sua+ Library{% endblock %}
 
 {% block content %}
-<div class="max-w-2xl mx-auto px-4 sm:px-6 py-8 md:py-10 pb-20 md:pb-32">
+<div class="editorial-wrap library-draft">
     <a href="{% url 'library_dashboard' %}" class="text-sm text-kec-grey hover:text-kec-red mb-6 inline-block">Back to Library</a>
-    <h1 class="font-syncopate text-2xl md:text-3xl uppercase tracking-wider text-kec-charcoal mb-2">New Competency Draft</h1>
+    <h1 class="editorial-title mb-3">New Competency Draft</h1>
     <p class="text-sm text-kec-grey mb-8">The competency will not appear in the Library until a curator publishes the draft.</p>
 
     {% if error %}<p class="mb-5 p-3 bg-red-50 text-kec-red text-sm rounded-kec">{{ error }}</p>{% endif %}
@@ -13,33 +13,33 @@
     <form method="post" class="space-y-5">
         {% csrf_token %}
         <div>
-            <label for="domain" class="block text-xs font-semibold text-kec-grey uppercase tracking-wider mb-2">Domain</label>
+            <label for="domain" class="block text-sm font-semibold text-kec-grey mb-2">Domain</label>
             <select name="domain" id="domain" required class="form-input w-full">
                 <option value="">Select a domain</option>
                 {% for domain in domains %}
-                <option value="{{ domain.id }}" {% if selected_domain.id == domain.id %}selected{% endif %}>{{ domain.framework.code }} · {{ domain.code }} · {{ domain.name }}</option>
+                <option value="{{ domain.id }}" {% if selected_domain.id == domain.id %}selected{% endif %}>{{ domain.framework.code }} &middot; {{ domain.code }} &middot; {{ domain.name }}</option>
                 {% endfor %}
             </select>
         </div>
         <div>
-            <label for="code" class="block text-xs font-semibold text-kec-grey uppercase tracking-wider mb-2">Competency code</label>
+            <label for="code" class="block text-sm font-semibold text-kec-grey mb-2">Competency code</label>
             <input type="text" name="code" id="code" required maxlength="20" class="form-input w-full" value="{{ request.POST.code|default:'' }}">
         </div>
         <div>
-            <label for="title" class="block text-xs font-semibold text-kec-grey uppercase tracking-wider mb-2">Title</label>
+            <label for="title" class="block text-sm font-semibold text-kec-grey mb-2">Title</label>
             <input type="text" name="title" id="title" required maxlength="200" class="form-input w-full" value="{{ request.POST.title|default:'' }}">
         </div>
         <div>
-            <label for="description" class="block text-xs font-semibold text-kec-grey uppercase tracking-wider mb-2">Description</label>
+            <label for="description" class="block text-sm font-semibold text-kec-grey mb-2">Description</label>
             <textarea name="description" id="description" rows="3" class="form-input w-full">{{ request.POST.description|default:'' }}</textarea>
         </div>
         <div>
-            <label for="proficient_descriptor" class="block text-xs font-semibold text-kec-grey uppercase tracking-wider mb-2">Level 3 descriptor</label>
+            <label for="proficient_descriptor" class="block text-sm font-semibold text-kec-grey mb-2">Level 3 descriptor</label>
             <textarea name="proficient_descriptor" id="proficient_descriptor" rows="4" class="form-input w-full">{{ request.POST.proficient_descriptor|default:'' }}</textarea>
             <p class="text-xs text-kec-grey mt-1">A new level descriptor requires approval from a second curator before publication.</p>
         </div>
         <div>
-            <label for="change_reason" class="block text-xs font-semibold text-kec-grey uppercase tracking-wider mb-2">Reason for change</label>
+            <label for="change_reason" class="block text-sm font-semibold text-kec-grey mb-2">Reason for change</label>
             <textarea name="change_reason" id="change_reason" rows="3" required class="form-input w-full">{{ request.POST.change_reason|default:'' }}</textarea>
         </div>
         <div class="flex justify-end">

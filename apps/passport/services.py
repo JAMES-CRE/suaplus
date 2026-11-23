@@ -1,10 +1,10 @@
 
 
-import json
 import uuid
-from datetime import datetime, timezone
-from django.conf import settings
+from datetime import UTC, datetime
+
 import jwt
+from django.conf import settings
 
 
 def expire_due_records(today=None):
@@ -29,7 +29,7 @@ def generate_badge_json(person, competency, level):
     
     # 1. Base Open Badges 3.0 Structure
     badge_id = f"urn:uuid:{uuid.uuid4()}"
-    issued_at = datetime.now(timezone.utc).isoformat()
+    issued_at = datetime.now(UTC).isoformat()
     
     credential = {
         "@context": [
@@ -60,26 +60,23 @@ def generate_badge_json(person, competency, level):
         }
     }
 
-    # 2. Sign the badge (JWT)
-    # In production, load a real private key from settings/env
-    secret_key = settings.SECRET_KEY 
-    
-    encoded_jwt = jwt.encode(
-        {"vc": credential},
-        secret_key,
-        algorithm="HS256"
-    )
-    
-    return encoded_jwt
+    private_key = getattr(settings, "BADGE_PRIVATE_KEY", "")
+    if private_key:
+        return jwt.encode({"vc": credential}, private_key, algorithm="RS256", headers={"kid": getattr(settings, "BADGE_KEY_ID", "current")})
+    if not settings.DEBUG:
+        return None  # Issuance recorded, signing disabled until approved keys are configured.
+    return jwt.encode({"vc": credential}, settings.SECRET_KEY, algorithm="HS256")
+
 
 def verify_badge(encoded_jwt):
-    """Verify a badge's signature."""
     try:
-        decoded = jwt.decode(
-            encoded_jwt, 
-            settings.SECRET_KEY, 
-            algorithms=["HS256"]
-        )
+        algorithm = jwt.get_unverified_header(encoded_jwt).get("alg")
+        if algorithm == "RS256" and getattr(settings, "BADGE_PUBLIC_KEY", ""):
+            decoded = jwt.decode(encoded_jwt, settings.BADGE_PUBLIC_KEY, algorithms=["RS256"])
+        elif algorithm == "HS256" and settings.DEBUG:
+            decoded = jwt.decode(encoded_jwt, settings.SECRET_KEY, algorithms=["HS256"])
+        else:
+            return None
         return decoded["vc"]
-    except jwt.PyJWTError:
+    except (jwt.PyJWTError, KeyError, ValueError):
         return None

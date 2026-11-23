@@ -1,0 +1,3 @@
+{% extends 'base.html' %}
+{% block title %}Check-in pending · Sua+{% endblock %}
+{% block content %}<div class="status-layout"><p class="eyebrow">Workshop / Identity review</p><h1 class="editorial-title">Your check-in needs a quick review</h1><p class="editorial-description">We could not safely match the details you supplied. The workshop team will review your identity before recording attendance.</p><div class="status-instructions"><h2>Speak to your facilitator</h2><p>{{ session.title }}. You do not need to create an account or submit another identity.</p></div><a href="{% url 'checkin' session.session_code %}" class="btn-secondary">Correct my details</a></div>{% endblock %}

@@ -8,12 +8,10 @@ Usage:
 """
 
 from django.core.management.base import BaseCommand
-from django.utils import timezone
 
 from apps.library.models import Competency, Domain, Framework, Level
 from apps.passport.models import Evidence
 from apps.programmes.models import Programme, TierCriterion
-from apps.registry.models import Person
 from apps.sessions.models import Attendance
 
 
@@ -89,7 +87,7 @@ class Command(BaseCommand):
             rule_type="min_level",
             parameters={"competency": "AI-01", "level": 1},
         )
-        self.stdout.write(f"TierCriterion: tier 2 = level 1 on AI-01")
+        self.stdout.write("TierCriterion: tier 2 = level 1 on AI-01")
 
         # 7. Evidence for the person who has attendance
         attendance = Attendance.objects.first()

@@ -4,14 +4,14 @@
 {% block title %}Generate Memo - Sua+ Hub{% endblock %}
 
 {% block content %}
-<div class="max-w-xl mx-auto px-4 sm:px-6 py-8 md:py-12 pb-32">
+<div class="editorial-wrap memo-compose">
 
     <a href="{% url 'memo_list' %}" class="text-sm text-kec-grey hover:text-kec-red mb-6 inline-block">
-        ← Back to Memos
+        &#8592; Back to Memos
     </a>
 
     <div class="mb-8 md:mb-10">
-        <h1 class="font-syncopate text-3xl md:text-4xl uppercase tracking-wider md:tracking-widest text-kec-charcoal mb-2">
+        <h1 class="editorial-title mb-3">
             Generate Memo
         </h1>
         <p class="text-sm text-kec-grey">
@@ -20,12 +20,6 @@
     </div>
 
     <hr class="border-gray-200 mb-8">
-
-    {% if messages %}
-        {% for message in messages %}
-            <div class="mb-6 p-3 bg-red-50 text-kec-red text-sm rounded-kec">{{ message }}</div>
-        {% endfor %}
-    {% endif %}
 
     <form method="post">
         {% csrf_token %}
@@ -36,7 +30,7 @@
 
             <!-- Period label -->
             <div>
-                <label for="period_label" class="block text-xs font-semibold text-kec-grey uppercase tracking-wider mb-2">
+                <label for="period_label" class="block text-sm font-semibold text-kec-grey mb-2">
                     Period label
                 </label>
                 <input
@@ -54,7 +48,7 @@
 
             <!-- Programme -->
             <div>
-                <label for="programme" class="block text-xs font-semibold text-kec-grey uppercase tracking-wider mb-2">
+                <label for="programme" class="block text-sm font-semibold text-kec-grey mb-2">
                     Programme (optional)
                 </label>
                 <select name="programme" id="programme" class="form-input w-full">
@@ -66,13 +60,13 @@
                     {% endfor %}
                 </select>
                 <p class="text-xs text-kec-grey mt-1">
-                    Leave blank to report across the whole university.
+                    Leave blank to report across your permitted programmes.
                 </p>
             </div>
 
             <!-- Since date -->
             <div>
-                <label for="since" class="block text-xs font-semibold text-kec-grey uppercase tracking-wider mb-2">
+                <label for="since" class="block text-sm font-semibold text-kec-grey mb-2">
                     Since (optional)
                 </label>
                 <input
@@ -93,10 +87,10 @@
         <p class="text-xs font-bold text-kec-red uppercase tracking-widest mb-4">What happens next</p>
 
         <ul class="space-y-2 mb-8 md:mb-10 text-sm text-kec-grey">
-            <li>· The system gathers every KPI for the chosen period and scope</li>
-            <li>· The narrative is written from the aggregated figures</li>
-            <li>· No personal data is sent to any AI service</li>
-            <li>· You land on the finished memo, ready to review or print</li>
+            <li>&middot; The system gathers every KPI for the chosen period and scope</li>
+            <li>&middot; The narrative is written from the aggregated figures</li>
+            <li>&middot; No personal data is sent to any AI service</li>
+            <li>&middot; You land on the finished memo, ready to review or print</li>
         </ul>
 
         <hr class="border-gray-200 mb-8">

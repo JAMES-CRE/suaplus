@@ -4,25 +4,31 @@ from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import login_required
+from django.core.exceptions import PermissionDenied
 from django.db import transaction
-from django.db.models import Avg, Count
+from django.db.models import Avg, Count, Q
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 
 from apps.accounts.models import RoleAssignment, UserAccount
-from apps.accounts.permissions import get_user_scopes, is_super_admin
+from apps.accounts.permissions import (
+    is_programme_owner,
+    require_capability,
+    scope_records,
+    trainer_status_queryset,
+)
 from apps.notifications.services import send_notification
-from apps.passport.models import Evidence
 from apps.programmes.models import (
     Nomination,
+    Partner,
     Programme,
     TierCriterion,
     TierStatus,
 )
 from apps.registry.models import Organisation
+from apps.reporting.access import scoped_reporting
 from apps.reporting.services.kpis import suppress
 from apps.sessions.models import Attendance, Facilitation, Session, SurveyResponse
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -30,35 +36,11 @@ from apps.sessions.models import Attendance, Facilitation, Session, SurveyRespon
 
 
 def _can_nominate(user, tier_status):
-    """Programme owners for the tier's programme, or super admins, can nominate."""
-    if is_super_admin(user):
-        return True
-    try:
-        account = user.hub_account
-    except AttributeError:
-        return False
-    return RoleAssignment.objects.filter(
-        user_account=account,
-        role="programme_owner",
-        scope_type="programme",
-        scope_id=tier_status.programme_id,
-    ).exists()
+    return trainer_status_queryset(user).filter(pk=tier_status.pk).exists()
 
 
 def _can_approve_programme(user, programme_id):
-    """Can this user approve nominations for this programme?"""
-    if is_super_admin(user):
-        return True
-    try:
-        account = user.hub_account
-    except AttributeError:
-        return False
-    return RoleAssignment.objects.filter(
-        user_account=account,
-        role="programme_owner",
-        scope_type="programme",
-        scope_id=programme_id,
-    ).exists()
+    return is_programme_owner(user, programme_id)
 
 
 # ---------------------------------------------------------------------------
@@ -67,31 +49,10 @@ def _can_approve_programme(user, programme_id):
 
 
 @login_required
+@require_capability("nominate_trainers")
 def scout_list(request):
-    """People eligible for a trainer tier, scoped to the user's permissions."""
-    qs = TierStatus.objects.select_related("person", "programme").filter(
-        status="eligible"
-    )
-
-    # Scope filtering
-    if not is_super_admin(request.user):
-        scopes = get_user_scopes(request.user)
-        programme_ids = {
-            s.scope_id
-            for s in scopes
-            if s.role == "programme_owner" and s.scope_type == "programme"
-        }
-        unit_ids = {
-            s.scope_id
-            for s in scopes
-            if s.role == "focal_person" and s.scope_type == "unit"
-        }
-        if programme_ids:
-            qs = qs.filter(programme_id__in=programme_ids)
-        elif unit_ids:
-            qs = qs.filter(person__unit_id__in=unit_ids)
-        else:
-            qs = qs.none()
+    """A union of the nominator's programme/unit/session scopes."""
+    qs = trainer_status_queryset(request.user).select_related("person", "programme").filter(status="eligible")
 
     # Optional filters
     programme_id = request.GET.get("programme")
@@ -103,7 +64,7 @@ def scout_list(request):
 
     qs = qs.order_by("programme__name", "tier", "person__full_name")
 
-    programmes = Programme.objects.filter(status="active").order_by("name")
+    programmes = scope_records(Programme.objects.filter(status="active"), request.user, "nominate_trainers").order_by("name")
 
     return render(
         request,
@@ -125,10 +86,11 @@ def scout_list(request):
 
 
 @login_required
+@require_capability("nominate_trainers")
 def nominate(request, tier_status_id):
     """Create a Nomination for a TierStatus."""
     ts = get_object_or_404(
-        TierStatus.objects.select_related("person", "programme"),
+        trainer_status_queryset(request.user).select_related("person", "programme"),
         id=tier_status_id,
     )
 
@@ -180,25 +142,9 @@ def nominate(request, tier_status_id):
 
 
 @login_required
+@require_capability("nominate_trainers")
 def nomination_list(request):
-    """Pending nominations the user can approve."""
-    qs = Nomination.objects.select_related("person", "programme").filter(
-        decision="pending"
-    )
-
-    if not is_super_admin(request.user):
-        try:
-            account = request.user.hub_account
-        except AttributeError:
-            qs = qs.none()
-            account = None
-        if account:
-            programme_ids = RoleAssignment.objects.filter(
-                user_account=account,
-                role="programme_owner",
-                scope_type="programme",
-            ).values_list("scope_id", flat=True)
-            qs = qs.filter(programme_id__in=programme_ids)
+    qs = scope_records(Nomination.objects.select_related("person", "programme"), request.user, "nominate_trainers").filter(decision="pending")
 
     qs = qs.order_by("-created_at")
 
@@ -210,18 +156,16 @@ def nomination_list(request):
 
 
 @login_required
+@require_capability("nominate_trainers")
 def nomination_detail(request, nomination_id):
     """Review and approve/reject one nomination."""
     nomination = get_object_or_404(
-        Nomination.objects.select_related("person", "programme"),
+        scope_records(Nomination.objects.select_related("person", "programme"), request.user, "nominate_trainers"),
         id=nomination_id,
     )
 
-    if not _can_approve_programme(request.user, nomination.programme_id):
-        messages.error(
-            request, "You don't have permission to approve this nomination."
-        )
-        return redirect("nomination_list")
+    if request.method == "POST" and not _can_approve_programme(request.user, nomination.programme_id):
+        raise PermissionDenied
 
     if request.method == "POST":
         decision = request.POST.get("decision")
@@ -259,7 +203,7 @@ def nomination_detail(request, nomination_id):
                 # Grant facilitator role scoped to the programme.
                 # Create the User if it doesn't exist so the person can
                 # actually log in via Google or OTP.
-                if nomination.person.email:
+                if nomination.person.email and nomination.tier >= 3:
                     User = get_user_model()
                     auth_user = User.objects.filter(
                         email__iexact=nomination.person.email
@@ -285,9 +229,16 @@ def nomination_detail(request, nomination_id):
                             "auth_method": auth_method,
                         },
                     )
+                    if account.person_id is None:
+                        if UserAccount.objects.filter(person=nomination.person).exclude(pk=account.pk).exists():
+                            raise PermissionDenied("Reconcile the participant's accounts before promotion.")
+                        account.person = nomination.person
+                        account.save(update_fields=["person"])
+                    elif account.person_id != nomination.person_id:
+                        raise PermissionDenied("The login account represents a different participant.")
                     RoleAssignment.objects.get_or_create(
                         user_account=account,
-                        role="facilitator",
+                        role="associate_trainer" if nomination.tier == 3 else "facilitator",
                         scope_type="programme",
                         scope_id=nomination.programme_id,
                     )
@@ -354,28 +305,14 @@ def nomination_detail(request, nomination_id):
 
 
 @login_required
+@scoped_reporting("export_reports")
 def partner_report_list(request):
-    """List all partner organisations with linked programmes."""
-    if not is_super_admin(request.user):
-        try:
-            roles = set(
-                request.user.hub_account.roles.values_list("role", flat=True)
-            )
-        except AttributeError:
-            roles = set()
-        if "executive_viewer" not in roles:
-            messages.error(
-                request, "You don't have permission to view partner reports."
-            )
-            return redirect("hub_home")
-
-    organisations = (
-        Organisation.objects.annotate(
-            programme_count=Count("partnerships__programmes", distinct=True)
-        )
-        .filter(programme_count__gt=0)
-        .order_by("name")
-    )
+    """Partners and organisations covered by the caller's report scopes."""
+    partner_ids = scope_records(Partner.objects.all(), request.user, "export_reports").values("pk")
+    org_ids = scope_records(Organisation.objects.all(), request.user, "export_reports").values("pk")
+    organisations = Organisation.objects.filter(Q(pk__in=org_ids) | Q(partnerships__pk__in=partner_ids)).annotate(
+        programme_count=Count("partnerships__programmes", distinct=True)
+    ).distinct().order_by("name")
 
     return render(
         request,
@@ -385,27 +322,17 @@ def partner_report_list(request):
 
 
 @login_required
+@scoped_reporting("export_reports")
 def partner_report(request, org_id):
-    """Report for one partner organisation."""
-    if not is_super_admin(request.user):
-        try:
-            roles = set(
-                request.user.hub_account.roles.values_list("role", flat=True)
-            )
-        except AttributeError:
-            roles = set()
-        if "executive_viewer" not in roles:
-            messages.error(
-                request, "You don't have permission to view partner reports."
-            )
-            return redirect("hub_home")
+    partner_ids = scope_records(Partner.objects.all(), request.user, "export_reports").values("pk")
+    org_ids = scope_records(Organisation.objects.all(), request.user, "export_reports").values("pk")
+    allowed_orgs = Organisation.objects.filter(Q(pk__in=org_ids) | Q(partnerships__pk__in=partner_ids)).distinct()
+    org = get_object_or_404(allowed_orgs, id=org_id)
 
-    org = get_object_or_404(Organisation, id=org_id)
-
-    attendances = Attendance.objects.filter(
-        person__organisation=org,
+    attendances = scope_records(Attendance.objects.all(), request.user, "export_reports").filter(
+        Q(person__organisation=org) | Q(session__programme__partners__partner__organisation=org) | Q(session__partners__partner__organisation=org),
         status__in=["completed", "partial"],
-    ).select_related("session__programme", "person")
+    ).select_related("session__programme", "person").distinct()
 
     reach = attendances.values("person_id").distinct().count()
 
@@ -445,10 +372,11 @@ def partner_report(request, org_id):
 
 
 @login_required
+@require_capability("view_people")
 def recognition_list(request):
     """Public recognition list of certified trainers, opt-in."""
     trainers = (
-        TierStatus.objects.filter(
+        scope_records(TierStatus.objects.all(), request.user, "view_people").filter(
             status="approved",
             tier__gte=4,
             person__age_band="18_plus",
@@ -458,12 +386,12 @@ def recognition_list(request):
     )
 
     for ts in trainers:
-        ts.session_count = Facilitation.objects.filter(
+        ts.session_count = scope_records(Facilitation.objects.all(), request.user, "view_people").filter(
             person=ts.person, session__programme=ts.programme
         ).count()
 
         direct = (
-            Facilitation.objects.filter(
+            scope_records(Facilitation.objects.all(), request.user, "view_people").filter(
                 person=ts.person, session__programme=ts.programme
             )
             .values_list("session__attendances__person_id", flat=True)
@@ -475,7 +403,7 @@ def recognition_list(request):
         second = 0
         if direct_ids:
             second = (
-                Facilitation.objects.filter(
+                scope_records(Facilitation.objects.all(), request.user, "view_people").filter(
                     person_id__in=direct_ids,
                     session__programme=ts.programme,
                 )

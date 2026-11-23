@@ -1,13 +1,12 @@
-from django.http import JsonResponse
-from django.db import connection
-
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.db import DatabaseError, InterfaceError, connection
+from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
-from django.utils import timezone
+
 from apps.accounts.permissions import is_super_admin
 from apps.core.models import AcademicPeriod
-from django.shortcuts import render
+
 
 def health_check(request):
     """Health check endpoint for UITS monitoring."""
@@ -15,7 +14,7 @@ def health_check(request):
         # Check database connection
         connection.ensure_connection()
         db_ok = True
-    except Exception:
+    except (DatabaseError, InterfaceError):
         db_ok = False
 
     status = 200 if db_ok else 503
@@ -109,3 +108,30 @@ def calendar_edit(request, period_id):
 def landing_page(request):
     """The public landing page for Sua+."""
     return render(request, "public/index.html")
+
+
+def liveness(request):
+    return JsonResponse({"status": "ok"})
+
+
+def readiness(request):
+    from django.conf import settings
+    from django.core.cache import cache
+    import secrets
+    checks = {"database": False, "cache": False, "worker": not settings.WORKER_HEARTBEAT_REQUIRED}
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT 1")
+            checks["database"] = cursor.fetchone()[0] == 1
+    except (DatabaseError, InterfaceError):
+        pass
+    try:
+        key = "ready:" + secrets.token_hex(8)
+        cache.set(key, "ok", 10)
+        checks["cache"] = cache.get(key) == "ok"
+        cache.delete(key)
+        if settings.WORKER_HEARTBEAT_REQUIRED:
+            checks["worker"] = bool(cache.get("worker:heartbeat"))
+    except Exception:
+        pass
+    return JsonResponse({"status": "ok" if all(checks.values()) else "error", **checks}, status=200 if all(checks.values()) else 503)

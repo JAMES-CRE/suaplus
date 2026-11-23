@@ -1,4 +1,4 @@
-
+from typing import ClassVar
 
 from django.conf import settings
 from django.db import models
@@ -11,7 +11,7 @@ from apps.registry.models import OrgUnit
 class Target(models.Model):
     """A KPI target value per programme / unit / category / period."""
 
-    KPI_CHOICES = [
+    KPI_CHOICES: ClassVar[list] = [
         ("coverage", "Coverage"),
         ("reach", "Reach"),
         ("progression", "Progression"),
@@ -49,8 +49,8 @@ class Target(models.Model):
     value = models.DecimalField(max_digits=10, decimal_places=2)
 
     class Meta:
-        ordering = ["kpi", "period"]
-        indexes = [
+        ordering: ClassVar[list] = ["kpi", "period"]
+        indexes: ClassVar[list] = [
             models.Index(fields=["kpi", "period"]),
             models.Index(fields=["programme"]),
             models.Index(fields=["unit"]),
@@ -77,7 +77,7 @@ class Memo(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        ordering = ["-created_at"]
+        ordering: ClassVar[list] = ["-created_at"]
 
     def __str__(self):
         return f"Memo v{self.version} - {self.period_label}"
@@ -86,7 +86,7 @@ class Memo(models.Model):
 class ExportLog(models.Model):
     """A record of every export of dashboard or list data."""
 
-    FORMAT_CHOICES = [
+    FORMAT_CHOICES: ClassVar[list] = [
         ("csv", "CSV"),
         ("xlsx", "XLSX"),
         ("pdf", "PDF"),
@@ -104,8 +104,8 @@ class ExportLog(models.Model):
     at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        ordering = ["-at"]
-        indexes = [models.Index(fields=["actor", "at"])]
+        ordering: ClassVar[list] = ["-at"]
+        indexes: ClassVar[list] = [models.Index(fields=["actor", "at"])]
 
     def __str__(self):
         return f"{self.actor} exported {self.view_name} ({self.format})"

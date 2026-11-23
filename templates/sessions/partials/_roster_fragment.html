@@ -12,11 +12,18 @@
             {% for a in attendances %}
             <div class="px-3 sm:px-4 py-2.5 sm:py-3 {% if not forloop.last %}border-b border-gray-100{% endif %}">
                 <p class="text-sm font-semibold text-kec-charcoal break-words">{{ a.person.full_name }}</p>
-                <p class="text-[11px] sm:text-xs text-kec-grey mt-0.5">
+                <p class="text-xs text-kec-grey mt-0.5">
                     {{ a.get_method_display }}
                     {% if a.check_in_at %}  {{ a.check_in_at|date:"H:i" }}{% endif %}
                     {% if a.status == "completed" %}  <span class="text-emerald-700 font-medium">checked out</span>{% endif %}
                 </p>
+                {% if a.can_confirm %}
+                <form method="post" action="{% url 'attendance_confirm' session.id a.id %}" class="mt-3">
+                    {% csrf_token %}
+                    <input type="hidden" name="reason" value="Staff confirmed full workshop attendance.">
+                    <button type="submit" class="btn-secondary btn-sm" aria-label="Confirm completion for {{ a.person.full_name }}">Confirm completed</button>
+                </form>
+                {% endif %}
             </div>
             {% endfor %}
         </div>

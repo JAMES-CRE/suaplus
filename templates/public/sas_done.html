@@ -1,31 +1,4 @@
-﻿{% extends 'base.html' %}
-{% load static %}
-
-{% block title %}Assessment Complete - Sua+{% endblock %}
-
-{% block content %}
-<div class="min-h-[80vh] flex items-center justify-center px-4 sm:px-6 py-8 md:py-12">
-    <div class="max-w-md w-full px-4 sm:px-6 text-center">
-
-        <h1 class="font-syncopate text-4xl md:text-5xl uppercase tracking-widest text-kec-charcoal mb-6">
-            Complete
-        </h1>
-
-        <hr class="border-gray-200 w-24 mx-auto mb-8">
-
-        <p class="text-base text-kec-grey leading-relaxed mb-10">
-            Thank you. Your baseline has been recorded and your Sua+ passport link is on its way to your email.
-        </p>
-
-        <a href="{{ passport_url }}" class="btn-primary w-full block text-center font-syncopate uppercase tracking-wider text-base mb-4">
-            View My Passport
-        </a>
-
-        <a href="/" class="text-xs text-kec-grey hover:text-kec-red underline">
-            Back to Home
-        </a>
-
-    </div>
-</div>
-{% endblock %}
-
+﻿{% extends 'base.html' %}{% load static %}
+{% block title %}Assessment complete &middot; Sua+{% endblock %}
+{% block content %}<div class="status-layout" id="assessment-complete" data-draft-key="{{ assessment_draft_key }}"><p class="eyebrow">Your baseline is recorded</p><h1 class="editorial-title">A starting point<br>you can build on.</h1><p class="editorial-description">Thank you. Your assessment has been saved to your Sua+ learning record. Self-ratings remain separate from assessed skills and approved credentials.</p><div class="status-instructions"><h2>What comes next?</h2><p>Explore your passport, choose a learning goal and return as you build new skills.</p></div><div class="page-actions"><a href="{{ passport_url }}" class="btn-primary">View My Passport </a><a href="{% url 'home' %}" class="text-link">Back to home</a></div></div>{% endblock %}
+{% block extra_js %}<script src="{% static 'js/assessment.js' %}" defer></script>{% endblock %}

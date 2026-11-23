@@ -1,6 +1,9 @@
-import io, base64
+import base64
+import io
+
 import qrcode
 from qrcode.image.svg import SvgPathImage
+
 
 def qr_data_uri(text: str) -> str:
     """Generates a clean SVG QR code as a data URI."""

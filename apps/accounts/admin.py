@@ -1,8 +1,8 @@
+from typing import ClassVar
+
 from django.contrib import admin
 
 # Register your models here.
-from django.contrib import admin
-
 from .models import RoleAssignment, UserAccount
 
 
@@ -26,7 +26,7 @@ class UserAccountAdmin(admin.ModelAdmin):
     search_fields = ("user__email", "person__full_name")
     autocomplete_fields = ("person",)
     readonly_fields = ("created_at", "updated_at")
-    inlines = [RoleAssignmentInline]
+    inlines: ClassVar[list] = [RoleAssignmentInline]
 
 
 @admin.register(RoleAssignment)

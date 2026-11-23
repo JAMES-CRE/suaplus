@@ -1,4 +1,4 @@
-﻿{% extends 'base.html' %}
+{% extends 'base.html' %}
 {% load static %}
 
 {% block title %}My Profile - Sua+ Passport{% endblock %}
@@ -14,7 +14,7 @@
 {% endif %}
 
 <div class="flex-grow flex items-center justify-center px-4 sm:px-6 py-12 bg-[#FAFAFA]">
-    <div class="max-w-xl w-full">
+    <div class="editorial-wrap personal-details">
 
         <!-- Header -->
         <div class="mb-8 relative">
@@ -28,7 +28,7 @@
                     {{ person.initials }}
                 </div>
                 
-                <h1 class="text-2xl font-syncopate uppercase tracking-wider text-kec-charcoal mb-1 break-words">
+                <h1 class="font-sans text-kec-charcoal mb-1 break-words text-2xl sm:text-3xl font-semibold tracking-tight leading-tight">
                     {% if person.title %}{{ person.title }} {% endif %}{{ person.full_name }}
                 </h1>
                 
@@ -36,29 +36,18 @@
                     {{ unit_label }}
                 </p>
                 
-                <span class="inline-block mt-3 px-2 py-0.5 rounded-full text-[10px] font-semibold
-                    {% if person.affiliation == 'external' %}bg-orange-100 text-orange-700{% else %}bg-green-100 text-green-700{% endif %}">
-                    {% if person.affiliation == 'external' %}External{% else %}Verified {{ person.get_affiliation_display }}{% endif %}
+                <span class="inline-block mt-3 px-2 py-0.5 rounded-full text-xs font-semibold
+ {% if person.affiliation == 'external' %}bg-orange-100 text-orange-700{% else %}bg-green-100 text-green-700{% endif %}">
+                    {% if person.affiliation == 'external' %}External{% else %}{{ person.get_affiliation_display }}{% endif %}
                 </span>
             </div>
         </div>
 
         <!-- Profile card -->
-        <div class="card p-6 sm:p-8" role="region" aria-labelledby="personal-details-heading">
-            {% if messages %}
-            <div class="mb-6 space-y-2">
-                {% for message in messages %}
-                <div role="{% if 'error' in message.tags %}alert{% else %}status{% endif %}" class="p-3 text-sm rounded-kec border
-                    {% if 'error' in message.tags %}bg-red-50 text-red-700 border-red-100
-                    {% else %}bg-emerald-50 text-emerald-700 border-emerald-100{% endif %}">
-                    {{ message }}
-                </div>
-                {% endfor %}
-            </div>
-            {% endif %}
+        <div class="paper-panel" role="region" aria-labelledby="personal-details-heading">
 
             <div class="flex justify-between items-center mb-8 border-b border-gray-100 pb-4">
-                <h2 id="personal-details-heading" class="text-sm font-bold text-kec-charcoal uppercase tracking-wider">Personal Details</h2>
+                <h2 id="personal-details-heading" class="text-sm font-bold text-kec-charcoal">Personal Details</h2>
                 <a href="{% url 'passport_profile_edit' token %}" class="btn-secondary text-xs px-4 py-2" aria-label="Edit personal details">Edit Details</a>
             </div>
 
@@ -82,7 +71,7 @@
             <!-- Privacy note -->
             <div style="display: flex; align-items: flex-start; gap: 6px; margin-top: 32px; padding-top: 16px; border-top: 1px solid #F3F4F6;">
                 <svg style="width: 14px; height: 14px; flex-shrink: 0; margin-top: 2px; color: #6B7280;" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4"></path></svg>
-                <span style="font-size: 11px; color: #6B7280; line-height: 1.4;">Contact details are masked on this page. Keep your passport link private.</span>
+                <span style="font-size: 12px; color: #6B7280; line-height: 1.4;">Contact details are masked on this page. Keep your passport link private.</span>
             </div>
         </div>
     </div>

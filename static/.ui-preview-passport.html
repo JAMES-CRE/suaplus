@@ -1,0 +1,286 @@
+﻿
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#D1121C">
+    <title>My Sua+ Passport - Demo learner</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/css/main.css">
+    <script src="/static/js/htmx.min.js" defer></script>
+    <script src="/static/js/navigation.js" defer></script>
+</head>
+<body class="app-shell min-h-[100svh] bg-[#F8F9FA]">
+    <a href="#main-content" class="skip-link">Skip to main content</a>
+    <button class="sidebar-backdrop" type="button" aria-label="Close navigation" tabindex="-1" hidden></button>
+    
+<aside id="app-sidebar" class="app-sidebar" aria-label="Sua+ navigation">
+    <div class="sidebar-brand">
+        <a href="/hub/" class="flex items-center gap-3 text-kec-charcoal" aria-label="Sua+ Hub home">
+            <img src="/static/img/kec-logo.png" alt="KNUST E-Learning Centre" class="h-10 shrink-0">
+            <span><span class="block text-xl font-bold tracking-tight">Sua+</span><span class="block text-xs text-kec-grey">Learning workspace</span></span>
+        </a>
+        <button id="sidebar-close" type="button" class="sidebar-toggle shrink-0" aria-label="Close navigation">
+            <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" d="m6 6 12 12M6 18 18 6"/></svg>
+        </button>
+    </div>
+    <nav aria-label="Main navigation" class="sidebar-nav">
+        <p class="px-3 mb-3 text-xs font-semibold uppercase tracking-widest text-kec-grey">Workspace</p>
+        
+        <a href="/hub/" class="app-sidebar-link" aria-current="page">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1Z"/></svg><span>Overview</span>
+        </a>
+        <a href="/my-passport/" class="app-sidebar-link" >
+            <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="3" width="14" height="18" rx="2"/><circle cx="12" cy="10" r="3"/><path d="M8 17h8M5 6H3m2 6H3m2 6H3"/></svg><span>My passport</span>
+        </a>
+        
+        <a href="/sessions/" class="app-sidebar-link" >
+            <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 11h18m-13 5h3"/></svg><span>Sessions</span>
+        </a>
+        
+        
+        <a href="/credentials/review/" class="app-sidebar-link" >
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-4M9 3v6h6M9 3l6 6m-7 6 3 3L21 8"/></svg><span>Credential reviews</span>
+        </a>
+        
+        
+        <a href="/dashboard/" class="app-sidebar-link" >
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 3v18h17M8 16v-5m5 5V7m5 9v-7"/></svg><span>Reports</span>
+        </a>
+        
+        
+        <a href="/library/" class="app-sidebar-link" >
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 6c-3-2-6-2-9-1v15c3-1 6-1 9 1m0-15c3-2 6-2 9-1v15c-3-1-6-1-9 1V6"/></svg><span>Competency library</span>
+        </a>
+        
+        
+    </nav>
+    <div class="sidebar-footer">
+        
+        <p class="text-sm font-semibold text-kec-charcoal">Your Sua+ workspace</p>
+        <p class="text-xs text-kec-grey mt-1 break-words">demo@example.com</p>
+        
+    </div>
+</aside>
+
+    <div class="app-body" id="app-body">
+    <header class="sticky top-0 z-40 bg-white border-b border-gray-200 shrink-0">
+        <div class="w-full max-w-6xl mx-auto px-4 sm:px-6 min-h-[64px] flex items-center justify-between gap-3">
+            <div class="flex items-center gap-3">
+                <button id="sidebar-toggle" type="button" class="sidebar-toggle" aria-label="Open navigation" aria-controls="app-sidebar" aria-expanded="false">
+                    <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" d="M4 6h16M4 12h16M4 18h16"/></svg>
+                    <span>Menu</span>
+                </button>
+                <a href="/hub/" class="shrink-0 lg:hidden" aria-label="Sua+ Hub home"><img src="/static/img/kec-logo.png" alt="KNUST E-Learning Centre" class="h-10"></a>
+                <span class="hidden lg:block text-sm font-medium text-kec-grey">KNUST E-Learning Centre</span>
+            </div>
+            
+                <a href="/accounts/logout/" class="app-nav-link">Sign out</a>
+            
+        </div>
+    </header>
+    <main id="main-content" tabindex="-1" class="flex-grow flex flex-col min-w-0">
+        
+        
+<div class="w-full max-w-5xl mx-auto px-4 sm:px-6 py-8 md:py-12 pb-12">
+
+       
+       <section class="mb-6" aria-labelledby="passport-summary-heading">
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-5">
+        <div class="flex items-start gap-3 min-w-0">
+            <span class="w-12 h-12 shrink-0 rounded-full bg-kec-red flex items-center justify-center text-white text-lg font-bold" aria-hidden="true">DL</span>
+            <div class="min-w-0">
+                <p class="text-sm text-kec-grey mb-1">Sua+ passport</p>
+                <h1 id="passport-summary-heading" class="text-2xl sm:text-3xl font-semibold tracking-tight break-words">Demo learner</h1>
+                <p class="text-sm text-kec-grey mt-1 break-words">KNUST · E-Learning Centre</p>
+                <div class="flex flex-wrap items-center gap-2 text-sm mt-2">
+                    <span class="text-kec-grey break-all">d***@example.com</span>
+                    <span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-700">Verified Staff</span>
+                    <span class="text-kec-grey">Academic</span>
+                </div>
+            </div>
+        </div>
+        <a href="/p/preview-token/profile/" class="btn-secondary btn-sm shrink-0">View my profile</a>
+    </div>
+    <div class="border-l-4 border-kec-red bg-white rounded-r-xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div class="min-w-0"><h2 class="text-base font-semibold">Choose your next learning goal</h2><p class="text-sm text-kec-grey mt-1 break-words">Set a skill you want to develop and give yourself a target date.</p></div>
+        <a href="#learning-goals" class="btn-primary btn-sm shrink-0">Set a learning goal</a>
+    </div>
+</section>
+
+    <!-- Main Grid -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        
+        <!-- Left Column (Spans 2 columns on desktop) -->
+        <div class="lg:col-span-2 space-y-6">
+            
+            <div id="competency-profile" class="card p-5 md:p-6">
+    <h2 class="text-lg font-semibold mb-2">Your competency profile</h2>
+    <p class="text-sm text-kec-grey mb-5">Average levels out of 5. Each bar uses the strongest record for each skill in that category, so a self-rating never replaces verified evidence.</p>
+    
+    <p class="text-sm text-kec-grey">Your skills will appear here as you complete assessments and record training evidence.</p>
+    
+</div>
+
+
+<!-- Stamps -->
+            <style>
+                .stamp { position: relative; width: 120px; height: 120px; display: flex; align-items: center; justify-content: center; transition: transform .2s ease; }
+                .stamp--a { transform: rotate(-4deg); }
+                .stamp--b { transform: rotate(3deg); }
+                .stamp--c { transform: rotate(-2deg); }
+                .stamp:hover { transform: rotate(0deg) scale(1.05); }
+                .stamp__outer { position: absolute; inset: 0; border: 2px dashed #d1d5db; border-radius: 50%; }
+                .stamp__inner { position: absolute; inset: 7px; border: 1px solid #a3e635; border-radius: 50%; background: radial-gradient(circle, rgba(163,230,53,.10) 0%, rgba(163,230,53,.03) 70%, transparent 100%); }
+                .stamp__inner::after { content: ""; position: absolute; inset: 3px; border: 1px solid #a3e635; border-radius: 50%; opacity: .35; }
+                .stamp__body { position: relative; z-index: 10; width: 100%; padding: 0 14px; text-align: center; }
+                .stamp__check { display: block; margin: 0 auto 3px; }
+                .stamp__title { margin: 0 0 4px; font-size: 12px; font-weight: 700; line-height: 1.2; color: #1A1A1A; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; word-break: break-word; }
+                .stamp__divider { width: 22px; height: 1px; background: #d1d5db; margin: 0 auto 4px; }
+                .stamp__date { margin: 0; font-size: 12px; font-weight: 500; color: #6B7280; text-transform: uppercase; letter-spacing: .05em; }
+            </style>
+
+            <div class="bg-white border border-gray-200 rounded-xl p-5 md:p-6 shadow-sm">
+                <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 mb-6">
+                    <h2 id="passport-stamps" class="text-lg font-semibold">Workshop stamps</h2>
+                    <span class="text-xs text-[#6B7280]">One per workshop completed</span>
+                </div>
+
+                <ol class="relative ml-3 space-y-5 border-l border-gray-200 pl-6" aria-label="Workshop attendance timeline">
+                    
+                    <li class="text-sm text-[#6B7280]">Your workshop stamps will appear here after you check in to training.</li>
+                    
+                </ol>
+            </div>    
+
+            <div class="bg-white border border-gray-200 rounded-xl p-5 md:p-6 shadow-sm">
+                <div class="flex flex-wrap items-center justify-between gap-2 mb-4">
+                    <div>
+                        <h2 class="text-base font-bold text-[#1A1A1A] mb-1" id="learning-goals">Learning goals</h2>
+                        <p class="text-xs text-[#6B7280]">Set a goal and track your progress.</p>
+                    </div>
+                </div>
+
+                <form method="post" action="/p/preview-token/goals/" class="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-[minmax(0,1fr)_auto_auto] mb-5">
+                    <input type="hidden" name="csrfmiddlewaretoken" value="preview">
+                    <input type="hidden" name="action" value="add">
+                    <label class="sr-only" for="goal-title">Learning goal</label>
+                    <input id="goal-title" name="title" maxlength="240" required placeholder="For example, complete the data analysis pathway" class="form-input w-full sm:col-span-2 xl:col-span-1">
+                    <div>
+                        <label class="sr-only" for="goal-target-date">Target date</label>
+                        <input id="goal-target-date" type="date" name="target_date" class="form-input w-full">
+                    </div>
+                    <button type="submit" class="btn-secondary w-full sm:w-auto">Add goal</button>
+                </form>
+
+                <div class="space-y-2">
+                    
+                    <p class="text-sm text-[#6B7280]">No learning goals yet.</p>
+                    
+                </div>
+            </div>
+            
+            <!-- Credentials -->
+            <div class="bg-white border border-gray-200 rounded-xl p-5 md:p-6 shadow-sm">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-base font-bold text-[#1A1A1A] mb-0" id="passport-credentials">Credentials</h2>
+                    
+                </div>
+
+                <div class="space-y-3">
+                    
+                    <p class="text-sm text-[#6B7280]">No credentials recorded yet. Add a certificate you have earned to submit it for review.</p>
+                    
+                </div>
+            </div>
+
+        </div> <!-- End of Left Column -->
+        
+        <!-- Right Column -->
+        <div class="space-y-6">
+            
+            <!-- Trainer Pathway -->
+            <div class="bg-white border border-gray-200 rounded-xl p-5 md:p-6 shadow-sm">
+                <h2 class="text-base font-bold text-[#1A1A1A] mb-4" id="trainer-pathways">Trainer pathways</h2>
+
+                
+                <p class="text-sm text-[#6B7280]">Trainer pathways will appear here when you join a programme with trainer tiers.</p>
+                
+            </div>
+
+            <!-- Upcoming Sessions -->
+            <div class="bg-white border border-gray-200 rounded-xl p-5 md:p-6 shadow-sm">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-base font-bold text-[#1A1A1A] mb-0" id="upcoming-sessions">Upcoming workshops</h2>
+                    
+                </div>
+
+                <div class="space-y-3">
+                    
+                    <p class="text-sm text-[#6B7280]">No upcoming sessions scheduled.</p>
+                    
+                </div>
+            </div>
+        </div> <!-- End of Right Column -->
+
+    </div>
+
+    <!-- Bottom Actions -->
+    <hr class="border-gray-200 mt-10 mb-6">
+    <div class="flex flex-col sm:flex-row justify-between items-center gap-4">
+        <div class="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
+            <a href="/p/preview-token/transcript/" class="btn-secondary text-center w-full sm:w-auto">View Transcript</a>
+            <a href="/p/preview-token/transcript.pdf" class="btn-secondary text-center w-full sm:w-auto">Download PDF</a>
+        </div>
+        <a href="/credentials/submit/" class="btn-primary text-center w-full sm:w-auto">Add a credential</a>
+    </div>
+
+</div>
+
+<style>
+    /* Hide scrollbar for mobile stamp swiping */
+    .hide-scrollbar::-webkit-scrollbar { display: none; }
+    .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    @keyframes stamp-celebration {
+        0% { transform: scale(.75) rotate(-10deg); opacity: .2; }
+        65% { transform: scale(1.08) rotate(2deg); opacity: 1; }
+        100% { transform: scale(1) rotate(0deg); opacity: 1; }
+    }
+    .stamp--new { animation: stamp-celebration .7s ease-out both; }
+    @media (prefers-reduced-motion: reduce) { .stamp--new { animation: none; } }
+</style>
+<script>
+    (function () {
+        document.querySelectorAll('.share-badge').forEach(function (button) {
+            button.addEventListener('click', function () {
+                var url = button.dataset.shareUrl;
+                var title = button.dataset.shareTitle || 'Sua+ badge';
+                if (navigator.share) {
+                    navigator.share({ title: title, url: url }).catch(function () {});
+                    return;
+                }
+                if (navigator.clipboard) {
+                    navigator.clipboard.writeText(url).then(function () {
+                        var original = button.textContent;
+                        button.textContent = 'Link copied';
+                        setTimeout(function () { button.textContent = original; }, 1500);
+                    });
+                }
+            });
+        });
+    }());
+</script>
+
+    </main>
+    <footer class="bg-white border-t border-gray-200 shrink-0">
+        <div class="w-full max-w-6xl mx-auto px-4 sm:px-6 py-6 flex flex-col sm:flex-row items-center justify-between gap-3 text-center sm:text-left">
+            <p class="text-sm text-gray-600">© 2026 KNUST E-Learning Centre. All rights reserved.</p>
+        </div>
+    </footer>
+    </div>
+    
+</body>
+</html>

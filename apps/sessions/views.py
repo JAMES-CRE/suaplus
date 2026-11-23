@@ -4,30 +4,38 @@ import hashlib
 import hmac
 import time
 
-from django.db.models import Q
-from apps.sessions.qrhelper import qr_data_uri
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.core.exceptions import PermissionDenied
+from django.core.exceptions import PermissionDenied, ValidationError
 from django.db import transaction
-from django.db.models import Count
+from django.db.models import Count, Q
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
+from django.views.decorators.http import require_POST
 
-from apps.accounts.permissions import get_user_scopes, is_super_admin
-from apps.core.rate_limit import rate_limit
-from apps.library.models import Level, SurveyTemplate
-from apps.library.versioning import framework_version_label
-from apps.notifications.services import (
-    send_passport_link_to_participant,
-    send_passport_link_to_guardian,
-    send_passport_link_to_partner_coordinators,
+from apps.accounts.permissions import (
+    can,
+    person_id_for,
+    programmes_for_creation,
+    require_capability,
+    scope_records,
+    session_queryset,
 )
-from apps.passport.models import Evidence
-from apps.registry.models import Consent, Organisation, Person
-from apps.passport.linking import issue_passport_link
+from apps.audit.services import log_event
+from apps.core.rate_limit import rate_limit
+from apps.library.models import SurveyTemplate
+from apps.registry.identity import (
+    IdentityMatch,
+    identity_data,
+    match_identity,
+    organisation_for_name,
+    queue_identity,
+    resolve_or_create,
+)
+from apps.registry.models import PassportToken, Person
+from apps.registry.workflows import apply_checkin
 from apps.sessions.forms import CheckinForm, CheckoutForm, SessionForm
 from apps.sessions.models import (
     Attendance,
@@ -35,58 +43,16 @@ from apps.sessions.models import (
     Session,
     SurveyResponse,
 )
-
+from apps.sessions.qrhelper import qr_data_uri
+from apps.sessions.services import complete_attendance, send_passport_update
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
 
 
-def _match_person(affiliation, email, phone, staff_no, full_name, age_band="unknown"):
-    """Find an existing Person or create one. Returns the Person."""
-    qs = Person.objects.all()
-
-    if staff_no:
-        found = qs.filter(staff_or_student_no=staff_no).first()
-        if found:
-            return found
-
-    if email:
-        found = qs.filter(email__iexact=email).first()
-        if found:
-            return found
-
-    if phone:
-        found = qs.filter(phone=phone).first()
-        if found:
-            return found
-
-    return Person.objects.create(
-        affiliation=affiliation,
-        staff_or_student_no=staff_no or None,
-        email=email or None,
-        phone=phone or None,
-        full_name=full_name,
-        age_band=age_band,
-    )
 
 
-def _create_attendance_evidence(person, session):
-    """Write level-1 evidence for each competency in the session."""
-    attendance_level = Level.objects.filter(
-        framework__is_knust=True, ordinal=1
-    ).first()
-    if not attendance_level:
-        return
-    for sc in session.competencies.select_related("competency__framework"):
-        Evidence.objects.create(
-            person=person,
-            competency=sc.competency,
-            level=attendance_level,
-            type="attendance",
-            source_type="attendance",
-            framework_version=framework_version_label(sc.competency.framework),
-        )
 
 
 
@@ -131,81 +97,36 @@ def checkin(request, code):
         if form.is_valid():
             data = form.cleaned_data
 
-            org = None
-            has_data_consent = data["consent"] or data.get("guardian_consent", False)
-            if data["affiliation"] == "external" and has_data_consent:
-                org_name = data.get("organisation_name", "").strip()
-                if org_name:
-                    org, _ = Organisation.objects.get_or_create(
-                        name=org_name, defaults={"type": "other"}
+            context = {key: data.get(key) for key in ("consent", "sms_consent", "guardian_consent", "guardian_name", "guardian_contact")}
+            context["submitted_at"] = timezone.now().isoformat()
+            try:
+                with transaction.atomic():
+                    session = get_object_or_404(Session.objects.select_for_update(), pk=session.pk, status__in=["scheduled", "open"])
+                    org, org_ids = organisation_for_name(data.get("organisation_name", "")) if data["affiliation"] == "external" else (None, ())
+                    submitted = identity_data(
+                        full_name=data["full_name"], affiliation=data["affiliation"], email=data.get("email", ""),
+                        phone=data.get("phone", ""), staff_or_student_no=data.get("staff_or_student_no", ""),
+                        organisation_id=org.pk if org else None, organisation_name=data.get("organisation_name", ""), age_band=data["age_band"],
                     )
-
-            age_band = data.get("age_band", "unknown")
-            phone_value = (
-                "" if age_band == "under_18" else data.get("phone", "").strip()
-            )
-
-            with transaction.atomic():
-                person = _match_person(
-                    affiliation=data["affiliation"],
-                    email=data.get("email", "").strip(),
-                    phone=phone_value,
-                    staff_no=data.get("staff_or_student_no", "").strip(),
-                    full_name=data["full_name"].strip(),
-                    age_band=age_band,
-                )
-
-                if data["affiliation"] == "external" and org is not None:
-                    person.organisation = org
-                    person.save(update_fields=["organisation"])
-
-                consent_given_by = (
-                    data.get("guardian_name", "").strip()
-                    if age_band == "under_18"
-                    else person.full_name
-                )
-                Consent.objects.create(
-                    person=person,
-                    type="data_processing",
-                    given_by=consent_given_by,
-                    notice_version="1.0",
-                )
-
-                if age_band == "under_18":
-                    Consent.objects.create(
-                        person=person,
-                        type="guardian",
-                        given_by=data.get("guardian_name", "").strip(),
-                        contact_details=data.get("guardian_contact", "").strip(),
-                        notice_version="1.0",
-                    )
-
-                if data.get("sms_consent") and person.phone:
-                    Consent.objects.create(
-                        person=person,
-                        type="sms",
-                        given_by=person.full_name,
-                        notice_version="1.0",
-                    )
-
-                attendance, created = Attendance.objects.get_or_create(
-                    session=session,
-                    person=person,
-                    defaults={
-                        "method": "code",
-                        "check_in_at": timezone.now(),
-                        "status": "partial",
-                    },
-                )
-
-                if not created:
-                    messages.info(
-                        request, "You were already checked in to this session."
-                    )
-                else:
-                    _create_attendance_evidence(person, session)
-
-            return redirect("checkin_done", code=session.session_code)
+                    if org_ids:
+                        match = queue_identity(IdentityMatch("conflict", submitted, reason="More than one organisation uses this name.", organisation_ids=org_ids), source="checkin", session=session, context=context)
+                    else:
+                        match = resolve_or_create(submitted, source="checkin", session=session, context=context)
+                    if match.status == "conflict":
+                        return render(request, "public/checkin_pending.html", {"session": session})
+                    if match.status == "error":
+                        raise ValidationError(match.reason)
+                    person = match.person
+                    if person.affiliation == "external" and org and person.organisation_id is None:
+                        person.organisation = org
+                        person.save(update_fields=["organisation"])
+                    _attendance, created = apply_checkin(person, session, context)
+                    if not created:
+                        messages.info(request, "You were already checked in to this session.")
+            except ValidationError as exc:
+                form.add_error(None, exc)
+            else:
+                return redirect("checkin_done", code=session.session_code)
     else:
         form = CheckinForm()
 
@@ -228,78 +149,30 @@ def checkin_done(request, code):
 
 
 def checkout(request, code, person_id):
-    """Check-out + exit survey."""
+    """Complete once; replay never overwrites feedback or rotates the link."""
     session = get_object_or_404(Session, session_code=code)
-    attendance = get_object_or_404(
-        Attendance, session=session, person_id=person_id
-    )
-
-    if request.method == "POST":
-        form = CheckoutForm(request.POST)
-        if form.is_valid():
-            with transaction.atomic():
-                attendance.check_out_at = timezone.now()
-                attendance.status = "completed"
-                attendance.save(update_fields=["check_out_at", "status"])
-
-                template = SurveyTemplate.objects.filter(
-                    type="exit", is_default=True
-                ).first()
-                if template:
-                    SurveyResponse.objects.create(
-                        attendance=attendance,
-                        template=template,
-                        type="exit",
-                        csat=form.cleaned_data["csat"],
-                        answers={
-                            "what_will_you_apply": form.cleaned_data[
-                                "what_will_you_apply"
-                            ],
-                        },
-                        interested_in_training=form.cleaned_data[
-                            "interested_in_training"
-                        ],
-                    )
-
-                passport_url = issue_passport_link(attendance.person)
-                if attendance.person.age_band == "under_18":
-                    guardian_link_sent = send_passport_link_to_guardian(
-                        person=attendance.person,
-                        session_title=session.title,
-                        passport_url=passport_url,
-                    )
-                    if guardian_link_sent:
-                        delivery_recipient = "guardian"
-                    else:
-                        coordinator_emails_sent = send_passport_link_to_partner_coordinators(
-                            person=attendance.person,
-                            session_title=session.title,
-                            passport_url=passport_url,
-                        )
-                        delivery_recipient = "coordinator" if coordinator_emails_sent else "unavailable"
-                else:
-                    send_passport_link_to_participant(
-                        person=attendance.person,
-                        session_title=session.title,
-                        passport_url=passport_url,
-                    )
-                    delivery_recipient = "participant"
-            return render(
-                request,
-                "public/checkout_done.html",
-                {
-                    "session": session,
-                    "delivery_recipient": delivery_recipient,
-                },
-            )
-    else:
-        form = CheckoutForm()
-
-    return render(
-        request,
-        "public/checkout.html",
-        {"session": session, "attendance": attendance, "form": form},
-    )
+    attendance = get_object_or_404(Attendance, session=session, person_id=person_id)
+    if attendance.status == "completed":
+        return render(request, "public/checkout_done.html", {"session": session, "already_completed": True})
+    form = CheckoutForm(request.POST or None)
+    if request.method == "POST" and form.is_valid():
+        try:
+            attendance, changed, evidence_count = complete_attendance(attendance.pk, checkout_data=form.cleaned_data)
+        except ValidationError as exc:
+            form.add_error(None, exc)
+        else:
+            delivery_recipient = "unavailable"
+            if changed:
+                log_event(
+                    request, "attendance_completed", "Attendance", attendance.pk,
+                    before={"status": "partial", "check_out_at": None},
+                    after={"status": "completed", "check_out_at": attendance.check_out_at.isoformat(), "evidence_count": evidence_count},
+                )
+                delivery_recipient = send_passport_update(attendance.person, session.title)
+            return render(request, "public/checkout_done.html", {
+                "session": session, "delivery_recipient": delivery_recipient, "already_completed": not changed,
+            })
+    return render(request, "public/checkout.html", {"session": session, "attendance": attendance, "form": form})
 
 
 # ---------------------------------------------------------------------------
@@ -307,78 +180,23 @@ def checkout(request, code, person_id):
 # ---------------------------------------------------------------------------
 
 
-def _sessions_visible_to(user):
-    """Return sessions covered by the user's operational role assignments."""
-    if is_super_admin(user):
-        return Session.objects.all()
-
-    scopes = get_user_scopes(user)
-    allowed = Q(pk__in=[])
-    operational_roles = {"facilitator", "associate_trainer", "programme_owner", "focal_person"}
-
-    for scope in scopes:
-        if scope.role not in operational_roles:
-            continue
-        if scope.scope_type == "all":
-            return Session.objects.all()
-        if scope.scope_id is None:
-            continue
-        if (
-            scope.role in ("programme_owner", "facilitator", "associate_trainer")
-            and scope.scope_type == "programme"
-        ):
-            allowed |= Q(programme_id=scope.scope_id)
-        elif scope.role == "focal_person" and scope.scope_type == "unit":
-            allowed |= Q(host_unit_id=scope.scope_id)
-        elif (
-            scope.role in ("facilitator", "associate_trainer")
-            and scope.scope_type == "session"
-        ):
-            allowed |= Q(pk=scope.scope_id)
-
-    if any(scope.role in ("facilitator", "associate_trainer") for scope in scopes):
-        try:
-            account = user.hub_account
-        except AttributeError:
-            account = None
-        if account and account.person_id:
-            allowed |= Q(facilitators__person_id=account.person_id)
-
-    return Session.objects.filter(allowed).distinct()
+def _sessions_visible_to(user, capability="view_sessions"):
+    return session_queryset(user, capability)
 
 
 def _programmes_user_can_schedule(user):
-    """Limit session creation to programmes granted to an operational user."""
-    from apps.programmes.models import Programme
-
-    if is_super_admin(user):
-        return Programme.objects.all()
-
-    scopes = get_user_scopes(user)
-    if any(
-        scope.role in ("programme_owner", "facilitator")
-        and scope.scope_type == "all"
-        for scope in scopes
-    ):
-        return Programme.objects.all()
-
-    programme_ids = [
-        scope.scope_id
-        for scope in scopes
-        if scope.role in ("programme_owner", "facilitator")
-        and scope.scope_type == "programme"
-        and scope.scope_id is not None
-    ]
-    return Programme.objects.filter(pk__in=programme_ids)
+    return programmes_for_creation(user)
 
 
 @login_required
+@require_capability("view_sessions")
 def session_list(request):
     """List of sessions the user can see."""
     from apps.programmes.models import Programme
 
+    visible_attendances = scope_records(Attendance.objects.all(), request.user, "view_sessions")
     qs = _sessions_visible_to(request.user).select_related("programme", "host_unit").annotate(
-        attendance_count=Count("attendances")
+        attendance_count=Count("attendances", filter=Q(attendances__in=visible_attendances))
     )
 
     # Optional filters
@@ -411,64 +229,89 @@ def session_list(request):
             "selected_programme": programme_id or "",
             "selected_status": status or "",
             "count": qs.count(),
+            "can_create": can(request.user, "create_sessions"),
         },
     )
 
 @login_required
+@require_capability("create_sessions")
 def session_create(request):
-    """Create a new session."""
-    from datetime import datetime
-
-    programmes = _programmes_user_can_schedule(request.user)
+    programmes = _programmes_user_can_schedule(request.user).filter(status="active")
     if not programmes.exists():
+        messages.error(request, "Ask an administrator to assign an active programme before creating a session.")
+        return redirect("session_list")
+    selected = request.GET.get("programme", "")
+    if selected and (not selected.isdecimal() or not programmes.filter(pk=selected).exists()):
         raise PermissionDenied
-
-    if request.method == "POST":
-        form = SessionForm(request.POST)
-        form.fields["programme"].queryset = programmes
-        if form.is_valid():
-            session = form.save(commit=False)
-
-            start_date = form.cleaned_data["start_date"]
-            start_time = form.cleaned_data["start_time"]
-            end_date = form.cleaned_data["end_date"]
-            end_time = form.cleaned_data["end_time"]
-
-            session.start_at = datetime.combine(start_date, start_time)
-            session.end_at = datetime.combine(end_date, end_time)
-
-            session.save()
-
-            # Link creator as lead facilitator
-            try:
-                account = request.user.hub_account
-                if account.person:
-                    Facilitation.objects.get_or_create(
-                        session=session,
-                        person=account.person,
-                        defaults={"role": "lead"},
-                    )
-            except AttributeError:
-                pass
-
-            messages.success(
-                request,
-                f"Session '{session.title}' created. "
-                f"Session code: {session.session_code}",
-            )
-            return redirect("session_console", session_id=session.id)
-    else:
-        form = SessionForm()
-        form.fields["programme"].queryset = programmes
-
-    return render(
-        request,
-        "sessions/session_create.html",
-        {"form": form},
-    )
+    form = SessionForm(request.POST or None, programmes=programmes, initial={"programme": selected} if selected else {})
+    form.fields["programme"].widget.attrs.update({
+        "hx-get": reverse("session_create"), "hx-trigger": "change", "hx-include": "this",
+        "hx-target": "#session-competencies", "hx-select": "#session-competencies", "hx-swap": "outerHTML",
+    })
+    if request.method == "POST" and form.is_valid():
+        try:
+            with transaction.atomic():
+                session = form.save()
+                form.save_mappings()
+                person_id = person_id_for(request.user)
+                if person_id:
+                    Facilitation.objects.get_or_create(session=session, person_id=person_id, defaults={"role": "lead"})
+                log_event(request, "session_created", "Session", session.pk, after={"programme_id": session.programme_id, "competencies": list(session.competencies.values_list("competency_id", flat=True))})
+        except ValidationError as exc:
+            form.add_error("competencies", exc)
+        else:
+            messages.success(request, f"Session '{session.title}' created. Session code: {session.session_code}")
+            return redirect("session_console", session_id=session.pk)
+    return render(request, "sessions/session_create.html", {"form": form})
 
 
 @login_required
+@require_capability("manage_sessions")
+def session_edit(request, session_id):
+    session = get_object_or_404(session_queryset(request.user, "manage_sessions"), pk=session_id)
+    from apps.programmes.models import Programme
+    programmes = Programme.objects.filter(pk=session.programme_id)
+    form = SessionForm(request.POST or None, instance=session, programmes=programmes)
+    if request.method == "POST" and form.is_valid():
+        try:
+            with transaction.atomic():
+                Session.objects.select_for_update().get(pk=session.pk)
+                form.save()
+                form.save_mappings()
+                log_event(request, "session_updated", "Session", session.pk, after={"title": session.title, "competencies": list(session.competencies.values_list("competency_id", flat=True))})
+        except ValidationError as exc:
+            form.add_error("competencies", exc)
+        else:
+            messages.success(request, "Session details updated.")
+            return redirect("session_console", session_id=session.pk)
+    return render(request, "sessions/session_create.html", {"form": form, "editing": True, "session": session})
+
+
+@login_required
+@require_capability("edit_records")
+@require_POST
+def attendance_confirm(request, session_id, attendance_id):
+    attendance = get_object_or_404(scope_records(Attendance.objects.all(), request.user, "edit_records"), pk=attendance_id, session_id=session_id)
+    reason = request.POST.get("reason", "").strip()
+    if not reason or len(reason) > 1000:
+        messages.error(request, "Give a confirmation reason of 1–1,000 characters.")
+        return redirect("session_console", session_id=session_id)
+    try:
+        attendance, changed, evidence_count = complete_attendance(attendance.pk)
+    except ValidationError as exc:
+        messages.error(request, "; ".join(exc.messages))
+    else:
+        if changed:
+            log_event(request, "attendance_confirmed", "Attendance", attendance.pk,
+                      before={"status": "partial"},
+                      after={"status": "completed", "reason": reason, "evidence_count": evidence_count})
+            send_passport_update(attendance.person, attendance.session.title)
+        messages.success(request, "Attendance confirmed." if changed else "Attendance was already completed.")
+    return redirect("session_console", session_id=session_id)
+
+
+@login_required
+@require_capability("view_sessions")
 def session_console(request, session_id):
     """Live console for a session: rotating QR, roster, close button."""
     session = get_object_or_404(
@@ -478,20 +321,24 @@ def session_console(request, session_id):
     return render(
         request,
         "sessions/session_console.html",
-        {"session": session},
+        {"session": session,
+         "assessment_attendances": scope_records(Attendance.objects.filter(session=session, status="completed"), request.user, "record_credentials").select_related("person"),
+         "can_manage": session_queryset(request.user, "manage_sessions").filter(pk=session.pk).exists(),
+         "can_import": session_queryset(request.user, "import_attendance").filter(pk=session.pk).exists()},
     )
 
 
 
 @login_required
+@require_capability("manage_sessions")
 def session_close(request, session_id):
     """Close a session - mark it closed, mark partials as absent."""
     session = get_object_or_404(
-        _sessions_visible_to(request.user).select_related("programme", "host_unit"), id=session_id
+        _sessions_visible_to(request.user, "manage_sessions").select_related("programme", "host_unit"), id=session_id
     )
 
     # Count attendance states for the confirmation page
-    attendances = Attendance.objects.filter(session=session)
+    attendances = scope_records(Attendance.objects.all(), request.user, "view_sessions").filter(session=session)
     total_checked_in = attendances.count()
     completed = attendances.filter(status="completed").count()
     partial = attendances.filter(status="partial").count()
@@ -520,14 +367,15 @@ def session_close(request, session_id):
 
 
 @login_required
+@require_capability("manage_sessions")
 def session_qr_fragment(request, session_id):
     """HTML fragment: QR code + countdown. Polled by HTMX every 30s."""
-    import io
     import base64
-    import qrcode
-    from urllib.parse import quote
+    import io
 
-    session = get_object_or_404(_sessions_visible_to(request.user), id=session_id)
+    import qrcode
+
+    session = get_object_or_404(_sessions_visible_to(request.user, "manage_sessions"), id=session_id)
     token = _rotating_token(session)
 
     # Build the FULL URL including the token
@@ -560,16 +408,22 @@ def session_qr_fragment(request, session_id):
     )
 
 @login_required
+@require_capability("view_sessions")
 def session_roster_fragment(request, session_id):
     """HTML fragment: attendance count + list. Polled by HTMX every 5s."""
     session = get_object_or_404(_sessions_visible_to(request.user), id=session_id)
 
     attendances = (
-        Attendance.objects.filter(session=session)
+        scope_records(Attendance.objects.all(), request.user, "view_sessions").filter(session=session)
         .select_related("person")
         .order_by("-check_in_at")
     )
 
+    confirm_ids = set(scope_records(Attendance.objects.all(), request.user, "edit_records").filter(
+        session=session, status="partial", check_in_at__isnull=False,
+    ).values_list("pk", flat=True)) if session.status != "cancelled" else set()
+    for attendance in attendances:
+        attendance.can_confirm = attendance.pk in confirm_ids
     return render(
         request,
         "sessions/partials/_roster_fragment.html",
@@ -587,9 +441,10 @@ def session_roster_fragment(request, session_id):
 
 
 @login_required
+@require_capability("manage_sessions")
 def session_qr_json(request, session_id):
     """JSON endpoint that returns the currently-valid rotating token."""
-    session = get_object_or_404(_sessions_visible_to(request.user), id=session_id)
+    session = get_object_or_404(_sessions_visible_to(request.user, "manage_sessions"), id=session_id)
     token = _rotating_token(session)
     checkin_url = request.build_absolute_uri(
         f"/checkin/{session.session_code}/?t={token}"
@@ -605,14 +460,15 @@ def session_qr_json(request, session_id):
 
 
 @login_required
+@require_capability("view_sessions")
 def session_live_stats(request, session_id):
     """JSON endpoint for external clients that want live stats."""
     session = get_object_or_404(_sessions_visible_to(request.user), id=session_id)
 
-    count = Attendance.objects.filter(session=session).count()
+    count = scope_records(Attendance.objects.all(), request.user, "view_sessions").filter(session=session).count()
 
     recent = list(
-        Attendance.objects.filter(session=session)
+        scope_records(Attendance.objects.all(), request.user, "view_sessions").filter(session=session)
         .select_related("person")
         .order_by("-check_in_at")[:5]
         .values("person__full_name", "check_in_at")
@@ -680,10 +536,11 @@ def followup_form(request, token):
     
     
 @login_required
+@require_capability("manage_sessions")
 def session_checkout_console(request, session_id):
     """Display the check-out QR code for a session."""
-    session = get_object_or_404(_sessions_visible_to(request.user), id=session_id)
-    
+    session = get_object_or_404(_sessions_visible_to(request.user, "manage_sessions"), id=session_id)
+
     checkout_url = request.build_absolute_uri(
         reverse("checkout_identify", kwargs={"code": session.session_code})
     )
@@ -709,22 +566,27 @@ def checkout_identify(request, code):
 
     if request.method == "POST":
         identifier = request.POST.get("identifier", "").strip()
-
-        person = Person.objects.filter(
-            Q(email__iexact=identifier) | Q(staff_or_student_no__iexact=identifier)
-        ).first()
-
-        if person:
-            attendance = Attendance.objects.filter(session=session, person=person).first()
-            if attendance:
-                return redirect(
-                    "checkout",
-                    code=session.session_code,
-                    person_id=person.id,
-                )
+        try:
+            submitted = identity_data(
+                email=identifier if "@" in identifier else "",
+                staff_or_student_no=identifier if "@" not in identifier else "",
+                full_name=request.POST.get("full_name", ""),
+            )
+            result = match_identity(submitted, source="checkout")
+        except ValidationError:
+            result = None
+        person = None
+        if result and result.status == "matched":
+            person = result.person if result.person.attendances.filter(session=session).exists() else None
+        elif result and result.status == "conflict":
+            eligible = list(Person.objects.filter(pk__in=result.candidate_ids, attendances__session=session, is_anonymised=False, merged_into__isnull=True).distinct()[:2])
+            if len(eligible) == 1:
+                person = eligible[0]
             else:
-                messages.error(request, "You were not checked in to this session.")
-        else:
-            messages.error(request, "We couldn't find a record with that email or ID.")
+                messages.error(request, "More than one participant uses that identifier. Add your full name or ask the facilitator for help.")
+        if person:
+            return redirect("checkout", code=session.session_code, person_id=person.pk)
+        elif not result or result.status != "conflict":
+            messages.error(request, "We could not match a checked-in participant with those details.")
 
     return render(request, "public/checkout_identify.html", {"session": session})

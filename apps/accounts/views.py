@@ -3,24 +3,21 @@
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import render
 
-from apps.accounts.permissions import scope_queryset
-from apps.registry.models import Person
-from django.shortcuts import render
-from apps.accounts.permissions import get_user_scopes, is_super_admin
-import io
-import qrcode
-
+from apps.accounts.permissions import can, person_queryset, require_capability
 
 
 @login_required
+@require_capability("view_people")
 def person_list(request):
-    qs = Person.objects.all().order_by("full_name")
-    qs = scope_queryset(qs, request.user, {"unit": "unit_id"})
-    return render(
-        request,
-        "accounts/person_list.html",
-        {"people": qs, "count": qs.count()},
-    )
+    from django.core.paginator import Paginator
+    from django.db.models import Q
+
+    qs = person_queryset(request.user).select_related("unit", "organisation").order_by("full_name")
+    query = request.GET.get("q", "").strip()
+    if query:
+        qs = qs.filter(Q(full_name__icontains=query) | Q(email__icontains=query) | Q(staff_or_student_no__icontains=query))
+    page = Paginator(qs, 50).get_page(request.GET.get("page"))
+    return render(request, "accounts/person_list.html", {"people": page, "count": qs.count(), "q": query})
     
     
 def cancel_login_code(request):
@@ -48,11 +45,31 @@ def hub_home(request):
     is_exec = "executive_viewer" in roles or is_admin
     is_curator = "library_curator" in roles or is_admin
 
+    from django.utils import timezone
+
+    from apps.accounts.context_processors import navigation
+    from apps.passport.views import _reviewable_credentials
+    from apps.sessions.views import _sessions_visible_to
+
+    nav = navigation(request)["sua_nav"]
+    next_session = None
+    if nav["sessions"]:
+        next_session = (
+            _sessions_visible_to(request.user)
+            .filter(status__in=["scheduled", "open"], end_at__gte=timezone.now())
+            .select_related("programme")
+            .order_by("start_at")
+            .first()
+        )
+    pending_reviews = (
+        _reviewable_credentials(request.user).count() if nav["reviews"] else 0
+    )
+
     person = None
     try:
         person = request.user.hub_account.person
-    except Exception:
-        pass
+    except AttributeError:
+        person = None
 
     return render(
         request,
@@ -65,75 +82,116 @@ def hub_home(request):
             "is_exec": is_exec,
             "is_curator": is_curator,
             "person": person,
+            "can_sessions": nav["sessions"],
+            "can_export": can(request.user, "export_reports"),
+            "can_nominate": can(request.user, "nominate_trainers"),
+            "next_session": next_session,
+            "pending_reviews": pending_reviews,
         },
     )
     
     
-from django_otp.plugins.otp_totp.models import TOTPDevice
-from django_otp import login as otp_login
-from django.shortcuts import render, redirect
+from base64 import b32encode
+from urllib.parse import urlsplit
+
 from django.contrib import messages
+from django.db import transaction
+from django.shortcuts import redirect
+from django.urls import reverse
+from django.utils.http import url_has_allowed_host_and_scheme
+from django.views.decorators.cache import never_cache
+from django.views.decorators.http import require_GET
+from django_otp import login as otp_login
+from django_otp import verify_token
+from django_otp.plugins.otp_totp.models import TOTPDevice
+
+from apps.accounts.mfa import has_verified_totp
+from apps.accounts.models import UserAccount
 
 
+def _totp_device_for_user(user):
+    """Reuse the enrolled authenticator; never offer a replacement at login."""
+    device = TOTPDevice.objects.filter(user=user, confirmed=True).first()
+    if device is None:
+        device, _ = TOTPDevice.objects.get_or_create(
+            user=user, name="default", defaults={"confirmed": False}
+        )
+    return device
 
 
+def _totp_next_url(request):
+    """Keep the original destination without allowing an external redirect."""
+    destination = request.POST.get("next", request.GET.get("next", ""))
+    if url_has_allowed_host_and_scheme(
+        destination,
+        allowed_hosts={request.get_host()},
+        require_https=request.is_secure(),
+    ):
+        destination_path = urlsplit(destination).path
+        if destination_path.startswith("/") and destination_path.rstrip("/") not in {
+            reverse("totp_setup").rstrip("/"), reverse("totp_setup_qr").rstrip("/")
+        }:
+            return destination
+    return reverse("hub_home")
 
+
+@never_cache
+@login_required
 def totp_setup(request):
-    """Setup page for TOTP two-factor authentication.
+    """Enroll once, then require the existing authenticator on each new login."""
+    destination = _totp_next_url(request)
+    if has_verified_totp(request.user):
+        return redirect(destination)
 
-    Forces Super Admins to enroll in an authenticator app before accessing the Hub.
-    """
-    from django_otp.plugins.otp_totp.models import TOTPDevice
-    from django_otp import login as otp_login
-    from django.contrib import messages
-    from django.shortcuts import render, redirect
-
-    if not request.user.is_authenticated:
-        return redirect("/login/")
-
-    device, _ = TOTPDevice.objects.get_or_create(
-        user=request.user,
-        name="default",
-        defaults={"confirmed": False},
-    )
+    device = _totp_device_for_user(request.user)
+    is_enrolled = device.confirmed
 
     if request.method == "POST":
         token = request.POST.get("token", "").strip()
-        if device.verify_token(token):
-            device.confirmed = True
-            device.save()
-            otp_login(request, device)
-            messages.success(request, "Two-factor authentication enabled.")
-            return redirect("/hub/")
-        else:
-            messages.error(
+        with transaction.atomic():
+            verified_device = verify_token(request.user, device.persistent_id, token)
+            if verified_device is not None:
+                if not verified_device.confirmed:
+                    verified_device.confirmed = True
+                    verified_device.save(update_fields=["confirmed"])
+                UserAccount.objects.filter(user=request.user).update(mfa_enabled=True)
+                request.session.cycle_key()
+                otp_login(request, verified_device)
+        if verified_device is not None:
+            messages.success(
                 request,
-                "Invalid code. Check your phone's clock and try again.",
+                "Two-factor authentication verified."
+                if is_enrolled else "Two-factor authentication enabled.",
             )
+            return redirect(destination)
+        messages.error(request, "Invalid code. Check your authenticator and try again.")
 
     return render(
         request,
         "accounts/totp_setup.html",
-        {"device": device},
+        {
+            "is_enrolled": is_enrolled,
+            "manual_key": b32encode(device.bin_key).decode() if not is_enrolled else "",
+            "next": destination,
+        },
     )
 
 
+@never_cache
+@require_GET
 def totp_setup_qr(request):
-    """Serve the QR code image for the current user's TOTP device."""
+    """Expose the enrollment QR only before an authenticator is confirmed."""
     import io
+
     import qrcode
     from django.http import HttpResponse
-    from django_otp.plugins.otp_totp.models import TOTPDevice
 
     if not request.user.is_authenticated:
         return HttpResponse(status=403)
+    if TOTPDevice.objects.filter(user=request.user, confirmed=True).exists():
+        return HttpResponse(status=403)
 
-    device, _ = TOTPDevice.objects.get_or_create(
-        user=request.user,
-        name="default",
-        defaults={"confirmed": False},
-    )
-
+    device = _totp_device_for_user(request.user)
     qr = qrcode.QRCode(version=None, box_size=8, border=2)
     qr.add_data(device.config_url)
     qr.make(fit=True)
@@ -154,7 +212,7 @@ def profile_completion(request):
     
     try:
         person = request.user.hub_account.person
-    except Exception:
+    except AttributeError:
         return redirect("/hub/")
 
     errors = []

@@ -1,0 +1,20 @@
+{% extends 'base.html' %}
+{% block title %}Identity review - Sua+ Hub{% endblock %}
+{% block content %}
+<div class="editorial-wrap identity-register">
+    <h1 class="editorial-title mb-3">Identity review</h1>
+    <p class="text-sm text-kec-grey mb-6">Ambiguous submissions stay out of attendance and evidence until an authorised reviewer resolves them.</p>
+    <form method="get" class="flex flex-wrap gap-3 mb-6">
+        <label for="identity-status" class="sr-only">Review status</label>
+        <select id="identity-status" name="status" class="form-input">{% for key, label in statuses %}<option value="{{ key }}" {% if status == key %}selected{% endif %}>{{ label }}</option>{% endfor %}</select>
+        <button class="btn-secondary" type="submit">Apply</button>
+    </form>
+    <div class="overflow-x-auto border border-gray-200 rounded-xl bg-white">
+        <table class="data-table">
+            <thead><tr><th class="p-3">Submitted identity</th><th class="p-3">Source / workshop</th><th class="p-3">Reason</th><th class="p-3">Review</th></tr></thead>
+            <tbody>{% for item in conflicts %}<tr class="border-t border-gray-100"><td class="p-3">{{ item.payload.identity.full_name|default:'Name not supplied' }}<p class="text-kec-grey">{{ item.payload.identity.email }}</p></td><td class="p-3">{{ item.source }}{% if item.session %} &middot; {{ item.session.title }}{% endif %}</td><td class="p-3">{{ item.reason }}</td><td class="p-3"><a href="{% url 'identity_review_detail' item.pk %}" class="btn-secondary btn-sm">Open review</a></td></tr>{% empty %}<tr><td colspan="4" class="p-5 text-kec-grey">No identity submissions in this status are visible within your scope.</td></tr>{% endfor %}</tbody>
+        </table>
+    </div>
+    <nav class="flex gap-4 mt-5" aria-label="Identity review pages">{% if conflicts.has_previous %}<a href="?status={{ status }}&page={{ conflicts.previous_page_number }}" class="btn-secondary">Previous</a>{% endif %}<span>Page {{ conflicts.number }} of {{ conflicts.paginator.num_pages }}</span>{% if conflicts.has_next %}<a href="?status={{ status }}&page={{ conflicts.next_page_number }}" class="btn-secondary">Next</a>{% endif %}</nav>
+</div>
+{% endblock %}

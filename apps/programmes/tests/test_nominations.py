@@ -71,7 +71,7 @@ def test_other_programme_owner_cannot_nominate(client, tier_status):
     response = client.post(
         reverse("nominate", args=[tier_status.id]), {"comments": ""}
     )
-    assert response.status_code == 302
+    assert response.status_code == 404
     assert Nomination.objects.count() == 0
 
 
@@ -135,7 +135,7 @@ def test_non_approver_cannot_approve(client, tier_status, programme):
         reverse("nomination_detail", args=[n.id]),
         {"decision": "approved"},
     )
-    assert response.status_code == 302
+    assert response.status_code == 403
     n.refresh_from_db()
     assert n.decision == "pending"
     

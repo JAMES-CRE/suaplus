@@ -1,10 +1,10 @@
-﻿{% load static %}
-<footer class="bg-white border-t border-gray-200 mt-auto py-4">
-    <div class="max-w-6xl mx-auto px-6 flex items-center justify-between">
-        <img src="{% static 'img/kec-icon.png' %}" alt="KEC" class="h-8">
-        <p class="text-sm text-gray-600"> 2026 KNUST E-Learning Centre. All rights reserved.</p>
-    </div>
-</footer>
-
-
-
+{% load static %}
+{% if user.is_authenticated %}
+<footer class="workspace-footer"><span>&copy; {% now 'Y' %} KNUST E-Learning Centre</span><a href="mailto:elearning@knust.edu.gh">Need help? Contact the Centre &#8599;</a></footer>
+{% else %}
+<footer class="centre-footer"><div class="footer-columns">
+<div class="footer-about"><img src="{% static 'img/kec-logo.png' %}" alt="KNUST E-Learning Centre" class="footer-logo"><p>West Africa&rsquo;s premier hub for digital education, empowering industries and institutions through tailored training, workforce development and digital transformation.</p><a href="mailto:elearning@knust.edu.gh" class="footer-conversation">Let&rsquo;s talk about your learning <span aria-hidden="true">&#8599;</span></a></div>
+<div><h2>Explore</h2><ul><li><a href="{% url 'sas_start' %}">Self-assessment</a></li><li><a href="{% url 'resend_link' %}">Competency passport</a></li><li><a href="{% url 'account_login' %}">Your learning workspace</a></li><li><a href="https://apps.knust.edu.gh/students" rel="noopener">Student Portal ↗</a></li><li><a href="https://www.knust.edu.gh/" rel="noopener">KNUST website &#8599;</a></li></ul></div>
+<div><h2>Contact the Centre</h2><ul class="footer-contact"><li><span aria-hidden="true">&#8599;</span><a href="tel:+233506978182">0506978182</a></li><li><span aria-hidden="true">@</span><a href="mailto:elearning@knust.edu.gh">elearning@knust.edu.gh</a></li><li><span aria-hidden="true">&#9783;</span><span>Monday to Friday<br>8am to 5pm</span></li><li><span aria-hidden="true">&#9678;</span><span>KNUST E-Learning Centre Directorate<br>CCB Auditorium</span></li></ul></div>
+</div><div class="footer-bottom"><span>&copy; {% now 'Y' %} KNUST E-Learning Centre. All rights reserved.</span><span>Digital education, thoughtfully delivered.</span></div></footer>
+{% endif %}

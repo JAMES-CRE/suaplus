@@ -10,7 +10,6 @@ class Command(BaseCommand):
         result = expire_due_records()
         self.stdout.write(
             self.style.SUCCESS(
-                "Expired %(credentials)s credential(s) and %(evidence)s evidence record(s)."
-                % result
+                f"Expired {result['credentials']} credential(s) and {result['evidence']} evidence record(s)."
             )
         )

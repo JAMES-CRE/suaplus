@@ -1,12 +1,11 @@
 from types import SimpleNamespace
 
 import pytest
+from allauth.core.exceptions import ImmediateHttpResponse
+from allauth.socialaccount.adapter import get_adapter
 from django.http import HttpRequest
 from django.test import override_settings
 from django.urls import reverse
-
-from allauth.core.exceptions import ImmediateHttpResponse
-from allauth.socialaccount.adapter import get_adapter
 
 from apps.accounts.adapters import KnustSocialAccountAdapter
 
@@ -74,4 +73,5 @@ def test_google_login_button_stays_visible_before_credentials_are_configured(cli
     response = client.get(reverse("account_login"))
 
     assert response.status_code == 200
-    assert b"Continue with Google" in response.content
+    assert b"Continue with KNUST Google" in response.content
+    assert b'href="/accounts/google/login/"' in response.content

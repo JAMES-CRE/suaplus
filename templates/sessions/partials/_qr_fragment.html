@@ -1,4 +1,4 @@
-{% load static %}
+﻿{% load static %}
 
 <div class="text-center">
 
@@ -7,7 +7,7 @@
         <img 
             src="{{ qr_image_data }}" 
             alt="Check-in QR Code" 
-            class="w-48 h-48 sm:w-[220px] sm:h-[220px] object-contain max-w-full">
+            class="w-48 sm:w-[220px] h-auto object-contain max-w-full">
     </div>
 
     <p class="text-xs text-kec-grey mb-6">
@@ -15,16 +15,16 @@
     </p>
 
     <!-- Session Code -->
-    <p class="text-[10px] sm:text-xs font-semibold text-kec-grey uppercase tracking-wider mb-2">Or enter code</p>
+    <p class="text-xs font-semibold text-kec-grey uppercase tracking-wider mb-2">Or enter code</p>
 
     <div class="border border-gray-200 rounded-kec px-4 py-2 sm:py-3 bg-gray-50 font-mono text-lg sm:text-xl font-bold text-kec-charcoal tracking-widest mb-6 inline-block">
         {{ session.session_code }}
     </div>
 
     <!-- Full Check-in URL (with token, for debugging) -->
-    <p class="text-[10px] sm:text-xs font-semibold text-kec-grey uppercase tracking-wider mb-2">Check-in URL</p>
+    <p class="text-xs font-semibold text-kec-grey uppercase tracking-wider mb-2">Check-in URL</p>
 
-    <p class="text-[11px] sm:text-xs font-mono text-kec-grey break-all px-2">
+    <p class="text-xs font-mono text-kec-grey break-all px-2">
         <a href="{{ checkin_url }}" target="_blank" class="text-kec-red hover:underline">
             {{ checkin_url }}
         </a>
